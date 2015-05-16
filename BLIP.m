@@ -101,20 +101,20 @@ for j = 1:n_iter
         PD = maps(:,:,2)-maps(:,:,1);
         T1 = maps(:,:,3) .* (maps(:,:,2)./maps(:,:,1) - 1);
     else
-%         tmp = abs(z);
-%         tmp = tmp .* sign(real(z));
-%         tmp = tmp * m_dict;
-        tmp = real(z) * m_dict;
+        phi = angle(mean(z(:,end/2+1:end), 2));
+        tmp = real(z .* exp(-1i * repmat(phi, [1 size(z,2)]))) * m_dict;
         tmp(tmp<0) = 0;
+        
         tmp = tmp ./ repmat(makesos(m_dict,1),    [size(tmp,1) 1]);
         [~, idx] = max(tmp, [], 2);
         tmp = tmp ./ repmat(makesos(m_dict,1),    [size(tmp,1) 1]);
+        
         for n=prod(recon_dim(1:end-1)):-1:1
             PD(n) = tmp(n,idx(n));
-            z(n,:) = PD(n) .* m_dict(:,idx(n)).'; % + 1i * imag(z(n,:));
-%             z(n,:) = abs(PD(n) .* m_dict(:,idx(n)).') .* exp(1i * angle(z(n,:)));
+            z(n,:) = PD(n) .* m_dict(:,idx(n)).' .* exp(1i * repmat(phi(n), [1 size(z,2)]));
             T1(n) = T1_dict(idx(n));
         end
+        
         z  = reshape(z,  recon_dim);
         PD = reshape(PD, recon_dim(1:end-1));
         T1 = reshape(T1, recon_dim(1:end-1));
