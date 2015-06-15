@@ -1,7 +1,8 @@
-function [T1, PD, z] = BLIP(nuFFT, sparseMatrices, recon_dim, data, T1_dict, m_dict, n_iter, kappa, mask, z, lambda)
+function [T1, PD, z] = BLIP(nuFFT, sparseMatrices, recon_dim, data, T1_dict, m_dict, n_iter, kappa, mask, z, lambda, mid, verbose)
 
 % for display
-slices = 7:2:13;
+% slices = 7:2:13;
+slices = 9:12;
 t = [1:2:20, size(data,2)];
 
 if nargin < 11 || isempty(lambda)
@@ -69,7 +70,7 @@ for j = 1:n_iter
     end
     display(['Data error = ', num2str(sqrt(data_error)./makesos(data(:)))]);
     
-    
+    if verbose
     if length(recon_dim) == 3
         sfig(4234); subplot(2,1,1); imagesc(array2mosaic(abs(z(:,:,t))));
         sfig(4234); subplot(2,1,2); imagesc(array2mosaic(angle(z(:,:,t)))); colormap jet;
@@ -82,6 +83,7 @@ for j = 1:n_iter
         error('Images must be either 2D or 3D');
     end
     title(['iteration = ', num2str(j-.5), '; mu = ', num2str(mu)]); drawnow;
+    end
     
     
     z     = reshape(z    , [prod(recon_dim(1:end-1)), recon_dim(end)]);
@@ -90,6 +92,7 @@ for j = 1:n_iter
     
     phi = angle(mean(z(:,end/2+1:end), 2));
     tmp = real(z .* exp(-1i * repmat(phi, [1 size(z,2)]))) * m_dict;
+%     tmp = abs(z .* exp(-1i * repmat(phi, [1 size(z,2)]))) * m_dict;
     tmp(tmp<0) = 0;
     tmp = tmp ./ repmat(makesos(m_dict,1),    [size(tmp,1) 1]);
     [~, idx] = max(tmp, [], 2);
@@ -104,6 +107,7 @@ for j = 1:n_iter
     PD = reshape(PD, recon_dim(1:end-1));
     T1 = reshape(T1, recon_dim(1:end-1));
     
+    if verbose
     if length(recon_dim) == 3
         sfig(234); subplot(2,1,1); imagesc(array2mosaic(real(z(:,:,t)))); title(['iteration = ', num2str(j)]);colorbar
         sfig(234); subplot(2,1,2); imagesc(array2mosaic(imag(z(:,:,t)))); title(['imag']); colorbar
@@ -126,6 +130,9 @@ for j = 1:n_iter
         error('Images must be either 2D or 3D');
     end
     drawnow;
+    else
+    save(['mid', num2str(mid), '_recon_lambda_p', num2str(lambda*100)], 'T1', 'PD', 'z', 'j');
+    end
     toc
 end
 
