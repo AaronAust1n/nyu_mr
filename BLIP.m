@@ -28,6 +28,7 @@ alpha = 0;
 
 for j = 1:n_iter
     tic;
+    lambda = lambda * 1.025;
     % match images to data for each timeframe
 
 %     if j>1
