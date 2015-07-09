@@ -1,112 +1,130 @@
-function [T1, PD, x] = BLIP(nuFFT, sparseMatrices, recon_dim, data, T1_dict, m_dict, n_iter, kappa, mask, x, lambda, mid, verbose)
+function [T1, PD, x] = BLIP(nuFFT, recon_dim, data, T1_dict, m_dict, n_iter, x, lambda, verbose, mid)
 
 % for display
 % slices = 7:2:13;
 slices = 9:12;
-t = [1:2:20, size(data,2)];
+t = [1:2:20, size(data,3)];
 
-if nargin < 11 || isempty(lambda)
+if nargin < 10 || isempty(mid)
+    mid = 000;
+end
+if nargin < 9 || isempty(verbose)
+    verbose = 1;
+end
+if nargin < 8 || isempty(lambda)
     lambda = .25;
-end 
-if nargin < 10 || isempty(x)
-    x = zeros(recon_dim);
 end
-if nargin < 9 || isempty(mask)
-    mask = 1;
+if nargin < 78 || isempty(x)
+    x = complex(zeros(recon_dim));
 end
-if nargin < 8 || isempty(kappa)
-    kappa = 1;
-end
-if nargin < 7 || isempty(n_iter)
+if nargin < 6 || isempty(n_iter)
     n_iter = 100;
 end
 
-Px = x;
-r = x;
-Ar = r;
-alpha = 0;
+sos_dict = makesos(m_dict,1);
 
-for j = 1:n_iter
+for j=1:n_iter
     tic;
-    lambda = lambda * 1.025;
-    % match images to data for each timeframe
-
-%     if j>1
-%         r = r - alpha * Ar;
-%     end
-    for l=1:recon_dim(end)
-        nuFFT = change_trajectory(nuFFT, sparseMatrices{l});
-%         if j==1
-            r(:,:,:,l) = nuFFT' * (data(:,l) - nuFFT * x(:,:,:,l)) + lambda.^2 * (Px(:,:,:,l) - x(:,:,:,l));
-%         end
-        Ar(:,:,:,l) = nuFFT' * (nuFFT * r(:,:,:,l));
-    end
-    alpha = real(r(:)' * r(:) ./ (r(:)' * Ar(:)));
-    x = x + alpha * r;
     
-    display(['sos(r) = ', num2str(makesos(r(:)))]);
+    if j == 1
+        r = nuFFT' * data;
+        Er = nuFFT * r;
+        Ex = 0 * Er;
+    else
+        Ex = nuFFT * x;
+        r = nuFFT' * (data - Ex) + lambda.^2 * (Px - x);
+        Er = nuFFT * r;
+    end
+    
+    
+    x  = reshape(x, [prod(recon_dim(1:end-1)), recon_dim(end)]);
+    r  = reshape(r, [prod(recon_dim(1:end-1)), recon_dim(end)]);
+    
+    %     phi = angle(mean(x(:,end/2+1:end), 2));
+    %     xm = real(x .* exp(-1i * repmat(phi, [1 size(x,2)]))) * m_dict;
+    %     xm = x * m_dict;
+    %     rm = r * m_dict;
+    
+    kappa_all = .5:.2:2;
+    for j_kappa = length(kappa_all):-1:1
+        kappa = kappa_all(j_kappa);
+        
+        %         PD = xm + kappa * rm;
+        %         phi = angle(mean(PD(:,end/2+1:end), 2));
+        %         PD = real(PD .* exp(-1i * repmat(phi, [1 recon_dim(end)])));
+        %         PD(PD<0) = 0;
+        %         PD = PD ./ repmat(sos_dict, [size(PD,1) 1]);
+        %         [PD, idx] = max(PD, [], 2);
+        %         PD = PD ./ sos_dict(idx).';
+        %         Px = repmat(PD .* exp(1i * phi), [1 recon_dim(2)]) .* m_dict(:,idx).';
+        
+        xkr = x + kappa * r;
+        
+        PD = (x * m_dict);
+        PD = PD ./ repmat(sos_dict, [size(PD,1) 1]);
+        [PD, idx] = max(PD, [], 2);
+        PD = PD ./ sos_dict(idx).';
+        Px = repmat(PD, [1 recon_dim(end)]) .* m_dict(:,idx).';
+        
+        
+        xkrmPx = xkr - Px;
+        cost(j_kappa) = real(Ex(:)'*Ex(:) + 2 * kappa * Ex(:)' * Er(:) + kappa^2 * Er(:)' * Er(:) - 2 * data(:)' * (Ex(:) + kappa * Er(:)) + data(:)' * data(:) + lambda^2 * xkrmPx(:)' * xkrmPx(:));
+    end
+    [min_cost, cost_idx] = min(cost);
+    kappa = kappa_all(cost_idx);
+    display(['cost = ', num2str(min_cost)]);
+    sosr = makesos(r(:));
+    display(['sos(r) = ', num2str(sosr)]);
+    display(['kappa = ', num2str(kappa)]);
+    
+    x  = reshape(x, recon_dim);
+    r  = reshape(r, recon_dim);
+    
+    
+    figure(94234); subplot(2,1,1); hold all; plot(j, min_cost, '.'); xlabel('Iteration'); ylabel('cost');
+    figure(94234); subplot(2,1,2); hold all; plot(j, sosr, '.'); xlabel('Iteration'); ylabel('sos(r)');
+       
+    x = x + kappa * r;
+    
     if verbose
-    if length(recon_dim) == 3
-        sfig(4234); subplot(2,1,1); imagesc(array2mosaic(abs(x(:,:,t))));
-        sfig(4234); subplot(2,1,2); imagesc(array2mosaic(angle(x(:,:,t)))); colormap jet;
-    elseif length(recon_dim) == 4
         tmp = x(:,:,slices,t);
         tmp = array2mosaic(tmp(:,:,:), [length(t) length(slices)]);
         sfig(09568756); imagesc(angle(tmp)); colormap jet
         sfig(4234); imagesc(abs(tmp));
-    else
-        error('Images must be either 2D or 3D');
-    end
-    title(['iteration = ', num2str(j-.5), '; alpha = ', num2str(alpha)]); drawnow;
+        title(['iteration = ', num2str(j-.5), '; kappa = ', num2str(kappa)]); drawnow;
     end
     
     
-    x  = reshape(x    , [prod(recon_dim(1:end-1)), recon_dim(end)]);
-    Px = reshape(Px, [prod(recon_dim(1:end-1)), recon_dim(end)]);
+    %     [Px, PD, T1] = P(x, m_dict, recon_dim);
     
+    x  = reshape(x, [prod(recon_dim(1:end-1)), recon_dim(end)]);
     
-    phi = angle(mean(x(:,end/2+1:end), 2));
-    tmp = real(x .* exp(-1i * repmat(phi, [1 size(x,2)]))) * m_dict;
-%     tmp = abs(z .* exp(-1i * repmat(phi, [1 size(z,2)]))) * m_dict;
-    tmp(tmp<0) = 0;
-    tmp = tmp ./ repmat(makesos(m_dict,1),    [size(tmp,1) 1]);
-    [~, idx] = max(tmp, [], 2);
-    tmp = tmp ./ repmat(makesos(m_dict,1),    [size(tmp,1) 1]);
-    for n=prod(recon_dim(1:end-1)):-1:1
-        PD(n) = tmp(n,idx(n));
-        Px(n,:) = PD(n) .* m_dict(:,idx(n)).' .* exp(1i * repmat(phi(n), [1 size(x,2)]));
-        T1(n) = T1_dict(idx(n));
-    end
+    PD = (x * m_dict);
+    PD = PD ./ repmat(sos_dict, [size(PD,1) 1]);
+    [PD, idx] = max(PD, [], 2);
+    PD = PD ./ sos_dict(idx).';
+    Px = repmat(PD, [1 recon_dim(end)]) .* m_dict(:,idx).';
+    T1 = T1_dict(idx);
+    
     x  = reshape(x,  recon_dim);
     Px = reshape(Px, recon_dim);
     PD = reshape(PD, recon_dim(1:end-1));
     T1 = reshape(T1, recon_dim(1:end-1));
     
     if verbose
-    if length(recon_dim) == 3
-        sfig(234); subplot(2,1,1); imagesc(array2mosaic(real(x(:,:,t)))); title(['iteration = ', num2str(j)]);colorbar
-        sfig(234); subplot(2,1,2); imagesc(array2mosaic(imag(x(:,:,t)))); title(['imag']); colorbar
-        sfig(12342); subplot(2,1,1); imagesc(PD); colormap jet; colorbar
-        title('PD [a.u.]');
-        sfig(12342); subplot(2,1,2); imagesc(T1); colormap jet; colorbar
-        title('T1 [s]');
-    elseif length(recon_dim) == 4
         tmp = abs(Px(:,:,slices,t));
         tmp = array2mosaic(tmp(:,:,:), [length(t) length(slices)]);
-        sfig(234); imagesc(tmp); title(['z_fit - iteration = ', num2str(j)]); colorbar
+        sfig(234); imagesc(tmp); title(['P(x) - iteration = ', num2str(j)]); colorbar
         tmp = abs(x(:,:,slices,t) - Px(:,:,slices,t));
         tmp = array2mosaic(tmp(:,:,:), [length(t) length(slices)]);
-        sfig(235); imagesc(tmp); title(['(z - z_fit) - iteration = ', num2str(j)]); colorbar
-        sfig(12342); subplot(2,1,1); imagesc(array2mosaic(PD(:,:,slices))); colormap jet; colorbar
+        sfig(235); imagesc(tmp); title(['(x - P(x)) - iteration = ', num2str(j)]); colorbar
+        sfig(12342); subplot(2,1,1); imagesc(array2mosaic(abs(PD(:,:,slices))), [0 7e-4]); colormap jet; colorbar
         title('PD [a.u.]');
-        sfig(12342); subplot(2,1,2); imagesc(array2mosaic(T1(:,:,slices)), [0 3]); colormap jet; colorbar
+        sfig(12342); subplot(2,1,2); imagesc(array2mosaic(T1(:,:,slices)), [0 2]); colormap jet; colorbar
         title('T1 [s]');
+        drawnow;
     else
-        error('Images must be either 2D or 3D');
-    end
-    drawnow;
-    else
-    save(['mid', num2str(mid), '_recon_lambda_p', num2str(lambda*100)], 'T1', 'PD', 'z', 'j');
+        save(['mid', num2str(mid), '_recon_lambda_p', num2str(lambda*100)], 'T1', 'PD', 'z', 'j');
     end
     toc
 end
