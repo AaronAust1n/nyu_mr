@@ -113,7 +113,7 @@ classdef nuFFT
         
         function s = size(A,n)
             
-            t1 = [A.trajectory_length, A.numCoils, A.imageDim(4)];
+            t1 = [A.trajectory_length, A.numCoils, A.imageDim(end)];
             t2 = A.imageDim;
             
             if A.adjoint
@@ -160,7 +160,11 @@ classdef nuFFT
                     for j=1:A.imageDim(end)
                         A.nufftStruct.p = A.nufftStruct.p_all{j};
                         for c=1:A.numCoils
-                            Q(:,:,:,j) = Q(:,:,:,j) + nufft_adj(B(:,c,j), A.nufftStruct) .* conj(A.sensmaps{c});
+                            if length(A.imageDim) == 3
+                                Q(  :,:,j) = Q(  :,:,j) + nufft_adj(B(:,c,j), A.nufftStruct) .* conj(A.sensmaps{c});
+                            else
+                                Q(:,:,:,j) = Q(:,:,:,j) + nufft_adj(B(:,c,j), A.nufftStruct) .* conj(A.sensmaps{c});
+                            end
                         end
                     end
                     % Normalization
@@ -174,7 +178,11 @@ classdef nuFFT
                     for j=1:A.imageDim(end)
                         A.nufftStruct.p = A.nufftStruct.p_all{j};
                         for c=1:A.numCoils
-                            Q(:,c,j) = nufft((B(:,:,:,j).*A.sensmaps{c}), A.nufftStruct);
+                            if length(A.imageDim) == 3
+                                Q(:,c,j) = nufft((B(  :,:,j).*A.sensmaps{c}), A.nufftStruct);
+                            else
+                                Q(:,c,j) = nufft((B(:,:,:,j).*A.sensmaps{c}), A.nufftStruct);
+                            end
                         end
                     end
                     Q = Q / sqrt(prod(A.imageDim(1:end-1)));
