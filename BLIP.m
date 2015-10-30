@@ -29,7 +29,7 @@ if lambda_tv > 0
     % [hf, hdf] = L1Norm(lambda_tv,waveletDecompositionOperator(recon_dim(1:end-1), 3, 'db2'));
 end
 
-kappa = 20;
+kappa = 200;
 SsS = data(:)' * data(:);
 cost_last_iter = SsS;
 for j=1:n_iter
@@ -37,17 +37,12 @@ for j=1:n_iter
     
     if j == 1
         r = nuFFT' * data;
-        Er = nuFFT * r;
-        Ex = 0 * Er;
     else
-%         Ex = nuFFT * x;
-        Ex = Ex + kappa * Er;
         if lambda_tv > 0
-            r = nuFFT' * (data - Ex) + lambda.^2 * (Px - x) - hdf(x);
+            r = nuFFT' * (data - EPx) - hdf(x);
         else
-            r = nuFFT' * (data - Ex) + lambda.^2 * (Px - x);
+            r = nuFFT' * (data - EPx);
         end
-        Er = nuFFT * r;
     end
     
     
@@ -66,12 +61,14 @@ for j=1:n_iter
         PD = (xkr * m_dict);
         [PD, idx] = max(PD, [], 2);
         Px = repmat(PD, [1 recon_dim(end)]) .* m_dict(:,idx).';
-        xkrmPx = xkr - Px;
+        
+        Px  = reshape(Px, recon_dim);
+        EPx = nuFFT * Px;
         
         if lambda_tv > 0
-            cost = real(Ex(:)'*Ex(:) + 2 * kappa * Ex(:)' * Er(:) + kappa^2 * Er(:)' * Er(:) - 2 * data(:)' * (Ex(:) + kappa * Er(:)) + SsS + lambda^2 * xkrmPx(:)' * xkrmPx(:)) + hf(x, kappa, r, cost_last_backtrack == 0);
+            cost = makesos(col(EPx - data))^2 + hf(x, kappa, r, cost_last_backtrack == 0);
         else
-            cost = real(Ex(:)'*Ex(:) + 2 * kappa * Ex(:)' * Er(:) + kappa^2 * Er(:)' * Er(:) - 2 * data(:)' * (Ex(:) + kappa * Er(:)) + SsS + lambda^2 * xkrmPx(:)' * xkrmPx(:));
+            cost = makesos(col(EPx - data))^2;
         end
         
         if cost_last_backtrack > 0 && cost > cost_last_backtrack
@@ -99,29 +96,21 @@ for j=1:n_iter
     PD = PD ./ sos_dict(idx).';
     T12 = T1_dict(idx,:);
     
-    x  = reshape(xkr,recon_dim);
-    Px = reshape(Px, recon_dim);
+    x  = reshape(Px,recon_dim);
+    clear Px
     PD = reshape(PD, recon_dim(1:end-1));
     T12 = reshape(T12, [recon_dim(1:end-1), size(T1_dict,2)]);
         
     if verbose        
-        % display P(x) and (x-P(x))
+        % display P(x)
         if length(recon_dim) == 4
-            tmp = abs(Px(:,:,slices,t));
+            tmp = abs(x(:,:,slices,t));
             tmp = array2mosaic(tmp(:,:,:), [length(t) length(slices)]);
         else
-            tmp = abs(Px(:,:,t));
+            tmp = abs(x(:,:,t));
             tmp = array2mosaic(tmp);
         end
         sfig(234); imagesc(tmp); title(['P(x) - iteration = ', num2str(j)]); colorbar
-        if length(recon_dim) == 4
-            tmp = abs(x(:,:,slices,t) - Px(:,:,slices,t));
-            tmp = array2mosaic(tmp(:,:,:), [length(t) length(slices)]);
-        else
-            tmp = abs(x(:,:,t) - Px(:,:,t));
-            tmp = array2mosaic(tmp);
-        end
-        sfig(235); imagesc(tmp); title(['(x - P(x)) - iteration = ', num2str(j)]); colorbar
         
         % display PD and T1
         if length(recon_dim) == 4
@@ -146,7 +135,7 @@ for j=1:n_iter
         end
         drawnow;
     else
-        save(['mid', num2str(mid), '_recon_lambda_p', num2str(lambda*100)], 'T1', 'PD', 'x', 'j');
+%         save(['mid', num2str(mid), '_recon_lambda_p', num2str(lambda*100)], 'T1', 'PD', 'x', 'j');
     end
     toc
 end
