@@ -22,14 +22,14 @@ if nargin < 6 || isempty(n_iter)
     n_iter = 100;
 end
 
-% lambda_tv = 1e-8;
-lambda_tv = 0;
+lambda_tv = 10e-8;
+% lambda_tv = 0;
 if lambda_tv > 0
-    [hf, hdf] = L1Norm(lambda_tv,finiteDifferenceOperator(1), finiteDifferenceOperator(2), finiteDifferenceOperator(3));
-    % [hf, hdf] = L1Norm(lambda_tv,waveletDecompositionOperator(recon_dim(1:end-1), 3, 'db2'));
+%     [hf, hdf] = L1Norm(lambda_tv,finiteDifferenceOperator(1), finiteDifferenceOperator(2));
+    [hf, hdf] = L1Norm(lambda_tv,waveletDecompositionOperator(recon_dim(1:end-1), 3, 'db2'));
 end
 
-kappa = 200;
+kappa = 35;
 SsS = data(:)' * data(:);
 cost_last_iter = SsS;
 for j=1:n_iter
@@ -37,6 +37,9 @@ for j=1:n_iter
     
     if j == 1
         r = nuFFT' * data;
+        Er = nuFFT*r;
+        kappa = (r(:)'*r(:)) ./ (Er(:)'*Er(:));
+        clear Er
     else
         if lambda_tv > 0
             r = nuFFT' * (data - EPx) - hdf(x);
@@ -77,18 +80,21 @@ for j=1:n_iter
                 change_direction = 1;
             else
                 warning('Changed search direction twice. Stopping linesearch here');
-                break;
+                linesearch = 0;
             end
         end
-        if (cost_last_iter - cost) > (0.1 * kappa * rr)
+        if (cost_last_iter - cost) > (0.01 * kappa * rr)
             cost_last_iter = cost;
             linesearch = 0;
         elseif backtrack
             cost_last_backtrack = cost;
             kappa = 0.8 * kappa;
-        else
+        elseif kappa <= 100
             cost_last_backtrack = cost;
             kappa = 2 * kappa;
+        else
+            warning('We won''t go beyond kappa 200. Keeping it there.');
+            linesearch = 0;
         end
     end
     
