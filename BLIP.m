@@ -1,19 +1,20 @@
-function [T12, PD, x] = BLIP(nuFFT, recon_dim, data, T1_dict, m_dict, sos_dict, n_iter, x, lambda, verbose, mid)
+function [T12, PD, x] = BLIP(nuFFT, recon_dim, data, T12_dict, m_dict, sos_dict, n_iter, x, lambda_l1, verbose)
 
 % for display
-% slices = 7:2:13;
-slices = 2*(9:12);
-% t = [1:2:20, size(data,3)];
-t = 1:ceil(size(m_dict,1)/9):size(m_dict,1);
-
-if nargin < 10 || isempty(mid)
-    mid = 000;
+if length(recon_dim) == 4
+    slices = 7:2:13;
+    t = [1:2:20, size(data,3)];
+else
+    slices = 2*(9:12);
+    t = 1:ceil(size(m_dict,1)/9):size(m_dict,1);
 end
+
+
 if nargin < 9 || isempty(verbose)
     verbose = 1;
 end
-if nargin < 8 || isempty(lambda)
-    lambda = .25;
+if nargin < 8 || isempty(lambda_l1)
+    lambda_l1 = 0;
 end
 if nargin < 7 || isempty(x)
     x = complex(zeros(recon_dim));
@@ -22,14 +23,12 @@ if nargin < 6 || isempty(n_iter)
     n_iter = 100;
 end
 
-lambda_tv = 10e-8;
-% lambda_tv = 0;
-if lambda_tv > 0
+if lambda_l1 > 0
 %     [hf, hdf] = L1Norm(lambda_tv,finiteDifferenceOperator(1), finiteDifferenceOperator(2));
-    [hf, hdf] = L1Norm(lambda_tv,waveletDecompositionOperator(recon_dim(1:end-1), 3, 'db2'));
+    [hf, hdf] = L1Norm(lambda_l1,waveletDecompositionOperator(recon_dim(1:end-1), 3, 'db2'));
 end
 
-kappa = 35;
+kappa = 10;
 SsS = data(:)' * data(:);
 cost_last_iter = SsS;
 for j=1:n_iter
@@ -41,10 +40,15 @@ for j=1:n_iter
         kappa = (r(:)'*r(:)) ./ (Er(:)'*Er(:));
         clear Er
     else
-        if lambda_tv > 0
-            r = nuFFT' * (data - EPx) - hdf(x);
-        else
-            r = nuFFT' * (data - EPx);
+        r = nuFFT' * (data - EPx);
+        if lambda_l1 > 0
+            for i=1:recon_dim(end)
+                if length(recon_dim)==3
+                    r(  :,:,i) = r(  :,:,i) - hdf(x(  :,:,i));
+                else
+                    r(:,:,:,i) = r(:,:,:,i) - hdf(x(:,:,:,i));
+                end
+            end
         end
     end
     
@@ -68,10 +72,11 @@ for j=1:n_iter
         Px  = reshape(Px, recon_dim);
         EPx = nuFFT * Px;
         
-        if lambda_tv > 0
-            cost = makesos(col(EPx - data))^2 + hf(x, kappa, r, cost_last_backtrack == 0);
-        else
-            cost = makesos(col(EPx - data))^2;
+        cost = makesos(col(EPx - data))^2;
+        if lambda_l1 > 0
+            for i=1:recon_dim(end)
+                cost = cost + hf(reshape(xkr(:,i),recon_dim(1:end-1)));
+            end
         end
         
         if cost_last_backtrack > 0 && cost > cost_last_backtrack
@@ -80,7 +85,7 @@ for j=1:n_iter
                 change_direction = 1;
             else
                 warning('Changed search direction twice. Stopping linesearch here');
-                linesearch = 0;
+                break;
             end
         end
         if (cost_last_iter - cost) > (0.01 * kappa * rr)
@@ -100,12 +105,12 @@ for j=1:n_iter
     
     
     PD = PD ./ sos_dict(idx).';
-    T12 = T1_dict(idx,:);
+    T12 = T12_dict(idx,:);
     
     x  = reshape(Px,recon_dim);
     clear Px
     PD = reshape(PD, recon_dim(1:end-1));
-    T12 = reshape(T12, [recon_dim(1:end-1), size(T1_dict,2)]);
+    T12 = reshape(T12, [recon_dim(1:end-1), size(T12_dict,2)]);
         
     if verbose        
         % display P(x)
@@ -120,22 +125,14 @@ for j=1:n_iter
         
         % display PD and T1
         if length(recon_dim) == 4
-            sfig(12342); subplot(2,1,1); imagesc(array2mosaic(abs(PD(:,:,slices))), [0 7e-4]); colormap jet; colorbar
-            title('PD [a.u.]');
-            sfig(12342); subplot(2,1,2); imagesc(array2mosaic(T12(:,:,slices)), [0 2]); colormap jet; colorbar
-            title('T1 [s]');
+            sfig(12342); subplot(2,1,1); imagesc(array2mosaic(abs(PD(:,:,slices))), [0 7e-4]); colormap jet; colorbar; title('PD [a.u.]');
+                         subplot(2,1,2); imagesc(array2mosaic(   T12(:,:,slices)),     [0 2]); colormap jet; colorbar; title('T1 [s]');
         else
-            sfig(12342); subplot(4,2,[1,3]); imagesc(abs(PD)); colormap hot; colorbar; axis off; axis equal;
-            title('PD [a.u.]');
-            sfig(12342); subplot(4,2,[2,4]); imagesc(T12(:,:,1), [0 4]); colormap hot; colorbar; axis off; axis equal;
-            title('T1 [s]');
-            sfig(12342); subplot(4,2,[5,7]); imagesc(T12(:,:,2), [0 .3]); colormap hot; colorbar; axis off; axis equal;
-            title('T2 [s]');
+            sfig(12342); subplot(4,2,[1,3]); imagesc(abs(PD));            colormap hot; colorbar; axis off; axis equal; title('PD [a.u.]');
+                         subplot(4,2,[2,4]); imagesc(T12(:,:,1), [0 4]);  colormap hot; colorbar; axis off; axis equal; title('T1 [s]');
+                         subplot(4,2,[5,7]); imagesc(T12(:,:,2), [0 .3]); colormap hot; colorbar; axis off; axis equal; title('T2 [s]');
             
             % display convergence
-            display(['Iteration ', num2str(j)]);
-            display(['cost = ',  num2str(cost)]);
-            display(['kappa = ', num2str(kappa)]);
             sfig(12342); subplot(4,2,6); hold all; plot(j, cost, '.'); xlabel('Iteration'); ylabel('cost');
             sfig(12342); subplot(4,2,8); hold all; plot(j,   rr, '.'); xlabel('Iteration'); ylabel('rr');
         end
@@ -143,6 +140,9 @@ for j=1:n_iter
     else
 %         save(['mid', num2str(mid), '_recon_lambda_p', num2str(lambda*100)], 'T1', 'PD', 'x', 'j');
     end
+    display(['Iteration ', num2str(j)]);
+    display(['cost = ',  num2str(cost)]);
+    display(['kappa = ', num2str(kappa)]);
     toc
 end
 
