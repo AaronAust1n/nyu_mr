@@ -18,6 +18,7 @@ classdef nuFFT
             %
             % trajectory =  [N_samples x N_dimensions x Nt]:
             %               Arbitrary trajectory in 2D or 3D k-space (obligatory)
+            %               k-space is defined in the range -pi - pi
             %
             % imageDim =    [Nx Ny Nz Nt]:
             %               Dimensions of the 4D image (obligatory)

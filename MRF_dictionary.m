@@ -1,4 +1,8 @@
-function [m_dict, sos_dict, T12_dict] = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP)
+function [m_dict, sos_dict, T12_dict] = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx)
+
+if nargin < 6 || isempty(pSSFP)
+    pSSFP = 0;
+end
 
 
 %% setup TR and TD/TE
@@ -15,14 +19,12 @@ if pSSFP
             TD(ip-1) = TE(ip) * sin_theta(ip) / sin_theta(ip-1);
         end
     end
-    %     TR = TD + TE;
 else
     TR = repmat(TR0, [length(alpha) 1]);
     TD = TR/2;
     TE = TD;
     TD(end) = 0;
     TE(1) = 0;
-    %     TR = TD + TE;
 end
 
 
@@ -92,10 +94,10 @@ for ip=1:length(alpha)
     
 end
 
+if nargin > 6 && ~isempty(idx)
+    m_dict = m_dict(idx,:);
+end
 sos_dict = makesos(m_dict, 1);
 m_dict = single(m_dict./repmat(sos_dict, [size(m_dict,1) 1]));
-
-figure; plot(abs(m_dict));
-xlabel('t [shots]'); ylabel('|S|/S_{max}'); drawnow;
 
 end
