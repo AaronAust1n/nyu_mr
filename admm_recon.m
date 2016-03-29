@@ -3,9 +3,9 @@ function [T12, PD, x] = admm_recon(E, recon_dim, data, T12_dict, m_dict, sos_dic
 % for display
 if length(recon_dim) == 4
     slices = 7:2:13;
-    t = [1:2:20, size(data,3)];
+    t = 1:recon_dim(end);
 else
-    slices = 2*(9:12);
+%     slices = 2*(9:12);
     t = 1:ceil(size(m_dict,1)/9):size(m_dict,1);
 end
 
@@ -46,8 +46,8 @@ for j=0:n_iter
             f = @(x) E'*(E*x) + mu1/2 * x;
         end        
         S = virtualMatrix(f,size(E,2));
-        
         x = conjugateGradient(S,backprojection,1e-6,cg_iter,[],verbose_cg,0);
+%         x = reshape(pcg(f,backprojection(:),1e-6,cg_iter), E.imageDim);
         
         y = zeros(size(x));
         if lambda_l21 > 0
@@ -71,7 +71,8 @@ for j=0:n_iter
         end
         
         S = virtualMatrix(f,size(E,2));
-        x = conjugateGradient(S,b,1e-6,cg_iter,x,verbose_cg,0);        
+        x = conjugateGradient(S,b,1e-6,cg_iter,x,verbose_cg,0);
+%         x = pcg(f,b,1e-6,cg_iter,[],[],x);
         
         if lambda_l21 > 0
             WLx = WL * x;
@@ -121,7 +122,7 @@ for j=0:n_iter
         
         % display PD and T1
         if length(recon_dim) == 4
-            sfig(12342); subplot(2,1,1); imagesc(array2mosaic(abs(PD(:,:,slices))), [0 1e-4]); colormap hot; colorbar; title('PD [a.u.]');
+            sfig(12342); subplot(2,1,1); imagesc(array2mosaic(abs(PD(:,:,slices)))); colormap hot; colorbar; title('PD [a.u.]');
             subplot(2,1,2); imagesc(array2mosaic(T12(:,:,slices)), [0 2]); colormap hot; colorbar; title('T1 [s]');
         else
             sfig(12342); subplot(4,2,[1,3]); imagesc(abs(PD)); colormap hot; colorbar; axis off; axis equal; title('PD [a.u.]');
@@ -136,7 +137,7 @@ for j=0:n_iter
     end
     if verbose > 0
         display(['Iteration ', num2str(j)]);
-        if nargin > 11 && ~isempty(savestr)
+        if nargin > 12 && ~isempty(savestr)
             save(savestr, 'T12', 'PD', 'x', 'j');
 %             if j==5
 %                 save(['j5_', savestr], 'T12', 'PD', 'x', 'j');

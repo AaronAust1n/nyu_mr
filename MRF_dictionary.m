@@ -98,6 +98,6 @@ if nargin > 6 && ~isempty(idx)
     m_dict = m_dict(idx,:);
 end
 sos_dict = makesos(m_dict, 1);
-m_dict = single(m_dict./repmat(sos_dict, [size(m_dict,1) 1]));
+% m_dict = (m_dict./repmat(sos_dict, [size(m_dict,1) 1]));
 
 end
