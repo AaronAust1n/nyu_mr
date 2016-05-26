@@ -61,11 +61,10 @@ classdef nuFFT
                 if size(trajectory,2) == 2 && length(size(sensmaps))== 2
                     A.numCoils = 1;
                 end
-                
                 if length(imageDim) == 3
-                    A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), 1, size(sensmaps,3)]);
+                   A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), 1, size(sensmaps,3)]);
                 else
-                    A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), size(sensmaps,3), 1, size(sensmaps,4)]);
+                   A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), size(sensmaps,3), 1, size(sensmaps,4)]);
                 end
             end
             if nargin<=3 || isempty(os)
@@ -191,13 +190,21 @@ classdef nuFFT
                         end
                     end    
                     snc = conj(A.sn);				% [*Nd,1]
-                    Q = Q .* snc(:,:,ones(1,A.imageDim(end))); % scaling factors
+                    if length(A.imageDim)==3
+                        Q = Q .* snc(:,:,ones(1,A.imageDim(end))); % scaling factors
+                    else
+                        Q = Q .* snc(:,:,:,ones(1,A.imageDim(end))); % scaling factors
+                    end
                                         
                 % This is the case A*B, where B is an image that is multiplied with the
                 % coil sensitivities. Thereafter the nuFFT is applied
                 else
                     Q = complex(zeros(size(A.p,1), A.numCoils));
-                    B = B .* A.sn(:,:,ones(1,A.imageDim(end)));
+                    if length(A.imageDim)==3
+                        B = B .* A.sn(:,:,ones(1,A.imageDim(end)));
+                    else
+                        B = B .* A.sn(:,:,:,ones(1,A.imageDim(end)));
+                    end
                     for c=1:A.numCoils
                         if length(A.imageDim) == 3
                             if A.numCoils>1
@@ -212,7 +219,7 @@ classdef nuFFT
                                 tmp = fft(fft(fft(B,[],1),[],2),[],3);
                             end
                         end
-                        tmp = reshape(tmp, [numel(tmp)/size(tmp,4) size(tmp,4)]);
+                        tmp = tmp(:);
                         Q(:,c) = A.p * tmp;
                     end
                     if ~isempty(A.dcomp)
