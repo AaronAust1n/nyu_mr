@@ -8,11 +8,11 @@ classdef CnuFFT
         sensmaps = {};
         p = [];
         sn = [];
-        %         sparseMat = {};
+        dcomp = [];
     end
     
     methods
-        function  A = CnuFFT(trajectory, imageDim, compression, sensmaps, os, neighbors, kernel)
+        function  A = CnuFFT(trajectory, imageDim, compression, sensmaps, os, neighbors, kernel, dcomp)
             
             %% Usage:
             %    A = nuFTOperator(trajectory, imageDim, sensmaps, os, neighbors, kernel)
@@ -92,6 +92,10 @@ classdef CnuFFT
             end
             compression = double(compression);
             
+            if nargin > 7 && ~isempty(dcomp)
+                A.dcomp = sqrt(dcomp(:));
+            end
+            
             % Siemens dimensions 2 Fessler dimensions (always fun to shuffle)
             if size(trajectory,2) == 3
                 trajectory = [trajectory(:,2,:), -trajectory(:,1,:) , trajectory(:,3,:)];
@@ -127,7 +131,7 @@ classdef CnuFFT
         
         function s = size(A,n)
             
-            t1 = [A.trajectory_length, A.numCoils, A.imageDim(end)];
+            t1 = [A.trajectory_length, A.numCoils, size(A.p,1)/A.trajectory_length];
             t2 = A.imageDim;
             
             if A.adjoint
@@ -166,6 +170,9 @@ classdef CnuFFT
             if isa(A,'CnuFFT')
                 % This is the case A'*B
                 if A.adjoint
+                    if ~isempty(A.dcomp)
+                        B = B .* repmat(A.dcomp, [1 A.numCoils]);
+                    end
                     Xk = reshape(full(A.p' * B), [A.imageDim A.numCoils]);
                     
                     snc = conj(A.sn);				% [*Nd,1]
@@ -207,6 +214,9 @@ classdef CnuFFT
                         tmp = reshape(fft(fft(fft(tmp,[],1),[],2),[],3), [numel(tmp)/size(tmp,5) size(tmp,5)]);
                     end
                     Q = A.p * tmp;
+                    if ~isempty(A.dcomp)
+                        Q = Q .* repmat(A.dcomp, [1 A.numCoils]);
+                    end
                 end
                 
                 % now B is the operator and A is the vector

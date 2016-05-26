@@ -8,11 +8,11 @@ classdef nuFFT
         sensmaps = {};
         p = [];
         sn = [];
-        %         sparseMat = {};
+        dcomp = [];
     end
     
     methods
-        function  A = nuFFT(trajectory, imageDim, sensmaps, os, neighbors, kernel)
+        function  A = nuFFT(trajectory, imageDim, sensmaps, os, neighbors, kernel, dcomp)
             
             %% Usage:
             %    A = nuFTOperator(trajectory, imageDim, sensmaps, os, neighbors, kernel)
@@ -62,7 +62,11 @@ classdef nuFFT
                     A.numCoils = 1;
                 end
                 
-                A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), 1, size(sensmaps,3)]);
+                if length(imageDim) == 3
+                    A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), 1, size(sensmaps,3)]);
+                else
+                    A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), size(sensmaps,3), 1, size(sensmaps,4)]);
+                end
             end
             if nargin<=3 || isempty(os)
                 os = 1;
@@ -86,6 +90,9 @@ classdef nuFFT
                 kernel = 'kaiser';
             end
             
+            if nargin > 6 && ~isempty(dcomp)
+                A.dcomp = sqrt(dcomp(:));
+            end
             
             % Siemens dimensions 2 Fessler dimensions (always fun to shuffle)
             if size(trajectory,2) == 3
@@ -123,7 +130,7 @@ classdef nuFFT
         
         function s = size(A,n)
             
-            t1 = [A.trajectory_length, A.numCoils, A.imageDim(end)];
+            t1 = [A.trajectory_length*A.imageDim(end), A.numCoils];
             t2 = A.imageDim;
             
             if A.adjoint
@@ -161,9 +168,11 @@ classdef nuFFT
             
             if isa(A,'nuFFT')
                 % This is the case A'*B
-                if A.adjoint                    
-%                     B = reshape(B, [size(B,1)*size(B,2) size(B,3)]);
-%                     B = B .* repmat(abs(-1+1/64/2:1/64:1).', [length(B)/128 1]);
+                if A.adjoint
+                    if ~isempty(A.dcomp)
+                        B = B .* repmat(A.dcomp, [1 A.numCoils]);
+                    end
+                    
                     Q = complex(zeros(A.imageDim));
                     for c=1:A.numCoils
                         Xk = reshape(full(A.p' * B(:,c)), A.imageDim);
@@ -189,7 +198,7 @@ classdef nuFFT
                 else
                     Q = complex(zeros(size(A.p,1), A.numCoils));
                     B = B .* A.sn(:,:,ones(1,A.imageDim(end)));
-                        for c=1:A.numCoils
+                    for c=1:A.numCoils
                         if length(A.imageDim) == 3
                             if A.numCoils>1
                                 tmp = fft(fft(B.*A.sensmaps(:,:,  ones(A.imageDim(end),1),c),[],1),[],2);
@@ -203,14 +212,15 @@ classdef nuFFT
                                 tmp = fft(fft(fft(B,[],1),[],2),[],3);
                             end
                         end
-                            tmp = reshape(tmp, [numel(tmp)/size(tmp,4) size(tmp,4)]);
-                            Q(:,c) = A.p * tmp;
-                        end
-%                         Q = Q ./ repmat(abs(-1+1/64:1/64:1).' + 1e-10, [754 1]);
-%                     Q = reshape(Q, [A.trajectory_length, size(A.p,1)/A.trajectory_length, A.numCoils]) / sqrt(prod(A.imageDim(1:end-1)));
+                        tmp = reshape(tmp, [numel(tmp)/size(tmp,4) size(tmp,4)]);
+                        Q(:,c) = A.p * tmp;
+                    end
+                    if ~isempty(A.dcomp)
+                        Q = Q .* repmat(A.dcomp, [1 A.numCoils]);
+                    end
                 end
                 
-                % now B is the operator and A is the vector
+            % now B is the operator and A is the vector
             elseif isa(B,'nuFFT')
                 Q = mtimes(B',A')';
             else
