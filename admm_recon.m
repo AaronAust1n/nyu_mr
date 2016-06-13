@@ -97,9 +97,9 @@ for j=0:n_iter
         
     clear idx
     for q=size(x,1):-1:1
-        Dx = x(q,:) * conj(m_dict);
-        Dy = y(q,:) * conj(m_dict);
-        [~,idx(q,1)] = min(2*real(Dx.*Dy) - abs(Dx).^2, [], 2);
+        Dx = x(q,:) * m_dict;
+        Dy = y(q,:) * m_dict;
+        [~,idx(q,1)] = max(2*real(Dx.*Dy) + abs(Dx).^2, [], 2);
     end
     c = sum(x .* m_dict(:,idx)',2);
     
