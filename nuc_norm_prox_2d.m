@@ -24,15 +24,15 @@ f = sqrt(4*abs(b).^2 + e.^2);
 sigma1 = sqrt((d+f)/2);
 sigma2 = sqrt((d-f)/2);
 
-norm = sum(col(sigma1 + sigma2));
+norm = sum(col(sigma1 + sigma2))/mu;
 
 g = (e + f)/2;
 h = (e - f)/2;
 
 k = g.^2 + abs(b).^2;
-k(k == 0) = 1;
+%k(k == 0) = 1;
 l = h.^2 + abs(b).^2;
-l(l == 0) = 1;
+%l(l == 0) = 1;
 
 % modify singular values
 fac1 = 1./max(1, sigma1/lambda);
@@ -48,16 +48,31 @@ qy = repmat(fac1.*b, [1 1 P]).*v1./repmat(k, [1 1 P]) ...
     + repmat(fac2.*b, [1 1 P]).*v2./repmat(l, [1 1 P]);
 
 
+
+%Correction for special case of orthogonal columns in A (see handwritten notes)
+idb = abs(b) == 0; %Case of orthogonal columns in original matrix
+idbr =  repmat( idb,[1 1 P]); %Vector extension of above
+idpx = sum(abs(px),3)==0; %Subcase of first vector being zero
+
+%Only if px=0, fac need to be modified
+fac2(idpx) = fac1(idpx);
+fac1(idpx) = 1;
+
+
+%Prox in case of orthogonal columns of A
+if size(px,1)*size(px,2)>1
+    qx(idbr) = px(idbr).*repmat(fac1(idb),[P 1]);
+    qy(idbr) = py(idbr).*repmat(fac2(idb),[P 1]);
+elseif ~isempty(px(idbr)) %special case for 1x1 array
+    qx(idbr) = px(idbr).*repmat(fac1(idb),[1 1 P]);
+    qy(idbr) = py(idbr).*repmat(fac2(idb),[1 1 P]);
+end
+
 %Postprocessing: Conversion to spectral norm prox
 qx = (px - qx)./mu;
 qy = (py - qy)./mu;
 
-
-% y = zeros(2,size(px,1),size(px,2),P);
-
 %Expand singelton dimensions (faster than with permute)
-% y(1,:,:,:) = reshape(qx,[size(qx,1),size(qx,2),1,size(qx,3)]);
-% y(2,:,:,:) = reshape(qy,[size(qy,1),size(qy,2),1,size(qy,3)]);
 y(2,:,:,:) = qy;
 y(1,:,:,:) = qx;
 
