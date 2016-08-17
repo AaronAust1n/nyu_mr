@@ -32,7 +32,7 @@ function [qMaps, PD, x, r] = admm_recon(E, recon_dim, data, Dic, ADMM_iter, cg_i
 %   ADMM_iter =  number of ADMM iterations (default = 10)
 %   cg_iter   =  number of conjugate gradient iterations in each ADMM
 %                iteration (default = 20)
-%   mu1       =  ADMM coupling parameter (dictionary) (default = 1.26e-6, 
+%   mu1       =  ADMM coupling parameter (dictionary) (default = 1.26e-6,
 %                but needs to be changed very likely)
 %   mu2       =  ADMM coupling parameter to the spatial regularization
 %                term. Has only an effect, if lambda>0 (default = .25)
@@ -41,32 +41,32 @@ function [qMaps, PD, x, r] = admm_recon(E, recon_dim, data, Dic, ADMM_iter, cg_i
 %   nuc_flag  =  Swichtes between a spatial l21-penalty (=0, default) or
 %                nuclear norm penalty (=1). Has only an effect if lambda>0
 %   P         =  'nuclear_norm' for a nuclear norm penalty of the gradient
-%                or an operator that transforms the images into the space, 
-%                in which an l21-norm penalty is applied. Has only an 
+%                or an operator that transforms the images into the space,
+%                in which an l21-norm penalty is applied. Has only an
 %                effect if lambda>0. Default = 1 (penalty in the image
 %                space).
-%                Examples: 
-%                P = 'nuclear_norm'; 
+%                Examples:
+%                P = 'nuclear_norm';
 %                P = wavelet_operator([nx ny nz], 3, 'db2');
 %                P = finite_difference_operator([1 2 3]);
 %   verbose   =  0 for no output, 1 for plotting the images and in each
 %                iteration and give only one output per ADMM iteration in
 %                the commandline and 2 for also print the residal of the
 %                CG in each CG iteration.
-%   
-%   
 %
-% Output: 
+%
+%
+% Output:
 %   qMaps = Maps of quantities contained in D.lookup_table
 %   PD    = Proton density retrived from the correlation
 %   x     = Low rank - or time-series of images
 %   r     = residual after all ADMM steps. Use only when you really want to
 %           know it since it requires and additional nuFFT operation
 %
-% For more details, please refer to 
-%   J. Assländer, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and 
+% For more details, please refer to
+%   J. Assländer, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and
 %   R. Lattanzi, Low Rank Alternating Direction Method of Multipliers
-%   Reconstruction for MR Fingerprinting  Magn. Reson. Med., epub 
+%   Reconstruction for MR Fingerprinting  Magn. Reson. Med., epub
 %   ahead of print, 2016.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -94,7 +94,10 @@ end
 if nargin < 10 || isempty(P)
     nuc_flag = 0;
     P = 1;
-elseif strcmp(P, 'nuclear_norm')
+elseif ischar(P)
+    if ~strcmp(P, 'nuclear_norm')
+        warning('P is a string, but not ''nuclear_norm'', we assume that is what you wanted to call');
+    end
     nuc_flag = 1;
     if length(recon_dim) == 3
         P = finite_difference_operator([1 2]);
@@ -109,16 +112,14 @@ if nargin < 11 || isempty(verbose)
 end
 
 
-
+r = zeros(1,ADMM_iter+1);
 for j=0:ADMM_iter
     tic;
     
     if j == 0
         backprojection = E' * data;
         f = @(x) E'*(E*x);
-        
-        S = virtualMatrix(f,size(E,2));
-        x = conjugateGradient(S,backprojection,1e-6,cg_iter,[],verbose,0);
+        x = conjugate_gradient(f,backprojection,1e-6,cg_iter,[],verbose);
         
         y = zeros(size(x));
         if lambda > 0
@@ -133,7 +134,7 @@ for j=0:ADMM_iter
                 G = nuc_norm_prox_2d(Px-z,lambda,mu2);
             else
                 G = Px - z;
-                Tl2 = makesos(G, length(size(G)));
+                Tl2 = l2_norm(G, length(size(G)));
                 G = G - G ./ repmat(Tl2, [ones(1, length(size(G))-1) recon_dim(end)]) * lambda/mu2;
                 G(isnan(G)) = 0;
                 G = G .* repmat(Tl2 > lambda/mu2, [ones(1, length(size(G))-1) recon_dim(end)]);
@@ -144,9 +145,7 @@ for j=0:ADMM_iter
         else
             f = @(x) E'*(E*x) + mu1 * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)]));
         end
-        
-        S = virtualMatrix(f,size(E,2));
-        x = conjugateGradient(S,b,1e-6,cg_iter,x,verbose,0);
+        x = conjugate_gradient(f,b,1e-6,cg_iter,x,verbose);
         
         if lambda > 0
             Px = P * x;
@@ -178,6 +177,7 @@ for j=0:ADMM_iter
     DDhx = D .* repmat(Dhx, [ones(1,length(recon_dim)-1) recon_dim(end)]);
     y = y + x - DDhx;
     
+    % Below here is just plotting stuff...
     if verbose == 1
         % display D*Dh*x and (x-D*Dh*x)
         figure(234); imagesc34d(abs(    DDhx),0); title([      'D*Dh*x - iteration = ', num2str(j)]); colorbar; colormap gray; axis off;
@@ -207,38 +207,24 @@ for j=0:ADMM_iter
         
         if nargout > 3
             r(1,j+1) = sum(col(abs(E*DDhx - data)).^2)/sum(col(abs(data)).^2);
-            if nuc_flag
-                [~, nuc_norm] = nuc_norm_prox_2d(P * DDhx,1,1);
-                r(1,j+1) = r(1,j+1) + lambda*abs(nuc_norm);
+            if lambda > 0
+                if nuc_flag
+                    [~, r_spatial] = nuc_norm_prox_2d(P * DDhx,1,1);
+                else
+                    r_spatial = P * DDhx;
+                    r_spatial = sum(col(l2_norm(r_spatial, length(size(r_spatial)))));
+                end
+                r(1,j+1) = r(1,j+1) + lambda*abs(r_spatial);
             end
-            sfig(8346); subplot(2,1,1); plot(log(r(1,:)), 'o');
-%             
-%             if size(PD,1)==128
-%                 if j==0
-%                     load ~/mygs/20160406_MRF_Simulations/qMaps_128
-%                 end
-%                 tmp  = PD - 1;
-%                 tmp  = tmp(T1==1.08);
-%                 r(2,j+1) = sqrt(mean(abs(tmp).^2));
-%                 
-%                 tmp  = T12(:,:,1) - T1;
-%                 tmp  = tmp(T1==1.08)/1.08;
-%                 r(3,j+1) = sqrt(mean(abs(tmp).^2));
-%                 
-%                 tmp  = T12(:,:,2) - T2;
-%                 tmp  = tmp(T1==1.08)/.1;
-%                 r(4,j+1) = sqrt(mean(abs(tmp).^2));
-%                 
-%                 subplot(2,1,2); plot(log(r(2:end,:)'), 'o');
-%             end
+            figure(8346); plot(0:j, log(r(1,1:j+1)), 'o');
+            xlabel('iteration'); ylabel('log(r)');
+            
+            
+            drawnow;
         end
-        
-        
-        drawnow;
+        if verbose > 0
+            display(['Iteration ', num2str(j)]);
+            toc
+        end
     end
-    if verbose > 0
-        display(['Iteration ', num2str(j)]);
-        toc
-    end
-end
 end

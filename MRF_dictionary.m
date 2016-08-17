@@ -157,7 +157,7 @@ else
     D.u = [];
 end
 
-sos_dict = makesos(m_dict, 1);
+sos_dict = l2_norm(m_dict, 1);
 m_dict = (m_dict./repmat(sos_dict, [size(m_dict,1) 1]));
 
 D.magnetization = m_dict;

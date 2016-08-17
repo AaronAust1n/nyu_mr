@@ -1,5 +1,30 @@
-function [y, norm] = nuc_norm_prox_2d(x, lambda,mu)
-%Note: The function has been adapted to deal with complex valued input, see handwritten notes and testsvd.m for a test
+function [y, norm] = nuc_norm_prox_2d(x,lambda,mu)
+% Calculates the ADMM update of the splitted variable that minimizes 
+% argmin_y lambda * ||y||_nuc + mu * ||y - x||_2^2
+%
+% y = nuc_norm_prox_2d(x)
+% y = nuc_norm_prox_2d(x,lambda)
+% y = nuc_norm_prox_2d(x,lambda,mu)
+% [y, norm] = nuc_norm_prox_2d(____)
+%
+% Input:
+%   x     in [2 nx ny R]
+%            finite differences of a series of images, where the first
+%            dimension stores the two gradient components (x,y), the next
+%            two dimensions are the spatial dimensions and the last one (R)
+%            is the series of images with multiple contrasts
+%   lambda = regularization parameter
+%   mu     = ADMM coupling parameter
+%
+% Output:
+%   y    = the optimal y
+%   norm = the nuclear norm of y
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% (c) Martin Holler, August 2016
+% University of Graz
+% martin.holler@uni-graz.at
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 px = mu*squeeze(x(1,:,:,:));
 py = mu*squeeze(x(2,:,:,:));
