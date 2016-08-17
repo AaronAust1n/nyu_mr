@@ -1,21 +1,48 @@
 classdef wavelet_operator
+    % wavelet_operator immitates a matrix that performes a wavelet
+    % transformation.
+    %   The constuctor takes the size of the dimensions along which the
+    %   wavelet transformation shall be perforemed (e.g. [nx ny nz]). The
+    %   wavelet transformation is performed when multiplying the operator
+    %   (mtimes) to an image. The image can also have one dimension more
+    %   than the operator (e.g. time). In this case, the wavelet
+    %   transformation is performed for each frame.
+    %   E.g. in order to calculate a gradient, the adjoint of the operator
+    %   can be use by calling A'.
+    %
+    %   Example: A = wavelet_operator([nx ny], 3, 'db2');
+    %            x = rand(256, 256, 10); % the last dimension is time
+    %            d = A*x;                % apply WL along dim 1 and 2
+    %            g = A'*d;               % adjoint operation
+    %
+    % see also wavedec, wavedec2, wavedec3
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % (c) Jakob Asslaender, August 2016
+    % New York University School of Medicine, Center for Biomedical Imaging
+    % University Medical Center Freiburg, Medical Physics
+    % jakob.asslaender@nyumc.org
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties
-        space = 0;
-        params = [];
-        dim = [];
-        sizes_all = [];
-        N = [];
-        wname = '';
-        adjoint = 0;
+        space = 0;      % Dimensionality of the wavelet transformation
+        params = [];    % Bunch of wavelet parameters
+        dim = [];       % Size of each image to be transformed
+        sizes_all = []; % For the 3D wavelet
+        N = [];         % Order of wavelet transformation
+        wname = '';     % Name of the wavelet
+        adjoint = 0;    % Boolean indicating if the matrix is adjoint
     end
     
     methods
         function W = wavelet_operator(dim, N, wname)
-            % function W = waveletDecompositionOperator(dim, N, wname)
+            % Constructor:
+            % W = waveletDecompositionOperator(dim, N, wname)
+            % Input:   dim = dimension of image (e.g. [64 64 32])
+            %            N = order of decomposition
+            %        wname = name of wavelet
+            % Output: Object
             %
-            % dim = dimension of image (e.g. [64 64 32])
-            % N = order of decomposition
-            % wname = name of wavelet
+            % see also wavedec, wavedec2, wavedec3
             
             if nargin==0
                 W.space = 0;
@@ -32,7 +59,6 @@ classdef wavelet_operator
                     W.space = 3;
                 end
             end
-            
             if W.space==0
                 W.params.sizes = [];
                 W.params.sizeINI = [];
@@ -74,7 +100,6 @@ classdef wavelet_operator
             else
                 error('dimension is not specified properly.');
             end
-            
             if nargin==0
                 W.N = [];
                 W.wname = '';
@@ -86,24 +111,25 @@ classdef wavelet_operator
             end
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function B = ctranspose(A)
-            B = A;
-            if B.adjoint==0
-                B.adjoint = 1;
-            else
-                B.adjoint = 0;
-            end
+        function A = ctranspose(A)
+            % Sets the objection in the adjoint mode.
+            % Called when using A'
+            A.adjoint = ~A.adjoint;
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function Q = mtimes(A,B)
+            % Performs the actual wavelet calculation.
+            %   Called when using A*B or A'*B
+            %   Input: A is usually the wavelet operator
+            %          B is the image (adjoint=0) or a vector of wavelet
+            %            components (adjoint=1)
             
-            if strcmp(class(A),'wavelet_operator')
-                
-                if A.adjoint==1
+            if isa(A, 'wavelet_operator')
+                if A.adjoint
                     if A.space==1
-                        Q = conj(waverec(B,A.params.sizes,A.wname));
+                        for i=size(B,2):-1:1
+                            Q(:,i) = conj(waverec(B(:,i),A.params.sizes,A.wname));
+                        end
                     elseif A.space==2
                         for i=size(B,2):-1:1
                             Q(:,:,i) = conj(waverec2(B(:,i),A.params.sizes,A.wname));
@@ -128,8 +154,9 @@ classdef wavelet_operator
                     end
                 else
                     if A.space==1
-                        Q = wavedecX(B,A.N,A.wname);
-                        
+                        for i=size(B,2):-1:1
+                            Q(:,i) = wavedecX(B(:,i),A.N,A.wname);
+                        end
                     elseif A.space==2
                         for i=size(B,3):-1:1
                             Q(:,i) = wavedec2(B(:,:,i),A.N,A.wname).';
@@ -148,16 +175,14 @@ classdef wavelet_operator
                                 startpt = startpt + ps(k);
                             end
                         end
-                    end 
+                    end
                 end
-            % now B is the operator and A is the vector
-            else
+            else % now B is the operator and A is the vector
                 Q = conj(mtimes(B',conj(A)));
                 
             end
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function s = size(W,n)
             if nargin < 2
                 s = W.dim;

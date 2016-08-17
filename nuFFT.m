@@ -2,6 +2,7 @@ classdef nuFFT
     properties
         numCoils = [];
         imageDim = [];
+        imageDimOS = [];
         adjoint = 0;
         trajectory_length = [];
         nufftNeighbors = [];
@@ -62,16 +63,18 @@ classdef nuFFT
                     A.numCoils = 1;
                 end
                 if length(imageDim) == 3
-                   A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), 1, size(sensmaps,3)]);
+                    A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), 1, size(sensmaps,3)]);
                 else
-                   A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), size(sensmaps,3), 1, size(sensmaps,4)]);
+                    A.sensmaps = reshape(sensmaps, [size(sensmaps,1), size(sensmaps,2), size(sensmaps,3), 1, size(sensmaps,4)]);
                 end
             end
             if nargin<=3 || isempty(os)
                 os = 1;
             end
             
-            A.imageDim = imageDim;
+            A.imageDim            = imageDim;
+            A.imageDimOS          = imageDim;
+            A.imageDimOS(1:end-1) = round(imageDim(1:end-1)*os);
             A.trajectory_length = size(trajectory,1);
             
             % Size of neighborhood for gridding:
@@ -101,8 +104,7 @@ classdef nuFFT
             end
             
             nd = size(trajectory,1);
-            np = prod(imageDim(1:end-1));
-            A.p = sparse(nd*imageDim(end), prod(imageDim));
+            np = prod(A.imageDimOS(1:end-1));
             
             % Now everything is in place and we can initialize the nuFFT. The
             % gridding kernel can be e.g. 'kaiser' or 'minmax:kb'
@@ -110,21 +112,16 @@ classdef nuFFT
             kkall = [];
             uuall = [];
             for l = 1:imageDim(end)
-                [init, mm, kk, uu] = nufft_init(trajectory(:,:,l), imageDim(1:end-1), A.nufftNeighbors, round(os*imageDim(1:end-1)), ceil(imageDim(1:end-1)/2), kernel);
+                [init, mm, kk, uu] = nufft_init(trajectory(:,:,l), imageDim(1:end-1), A.nufftNeighbors, A.imageDimOS(1:end-1), ceil(A.imageDim(1:end-1)/2), kernel);
                 if l==1
                     A.sn = init.sn;
-%                     A.n_shift = init.n_shift;
                 end
                 mmall = [mmall, mm+((l-1)*nd)];
                 kkall = [kkall, kk+((l-1)*np)];
                 uuall = [uuall, uu];
-%                 A.p(((l-1)*nd+1):(l*nd), ((l-1)*npx+1):(l*npx)) = init.p;
             end
             
-            % make sparse matrix, ensuring arguments are double for stupid matlab
-            A.p = sparse(mmall, kkall, uuall, nd*imageDim(end), prod(imageDim));
-            % sparse object, to better handle single precision operations!
-%             A.p = Gsparse(A.p, 'odim', [nd*imageDim(end) 1], 'idim', [prod(imageDim) 1]);            
+            A.p = sparse(mmall, kkall, uuall, nd*A.imageDim(end), prod(A.imageDimOS));
         end
         
         function s = size(A,n)
@@ -174,60 +171,67 @@ classdef nuFFT
                     
                     Q = complex(zeros(A.imageDim));
                     for c=1:A.numCoils
-                        Xk = reshape(full(A.p' * B(:,c)), A.imageDim);
+                        Xk = reshape(full(A.p' * B(:,c)), A.imageDimOS);
                         if length(A.imageDim) == 3
+                            Qtmp = ifft(ifft(Xk,[],1),[],2);
+                            Qtmp = Qtmp(1:A.imageDim(1),1:A.imageDim(2),:); % remove oversampling
+                            
                             if A.numCoils>1
-                                Q = Q +      ifft(ifft(Xk,[],1),[],2)       .* conj(A.sensmaps(  :,:,ones(A.imageDim(end),1),c));
+                                Q = Q + Qtmp .* conj(A.sensmaps(  :,:,ones(A.imageDim(end),1),c));
                             else
-                                Q = Q +      ifft(ifft(Xk,[],1),[],2);
+                                Q = Q + Qtmp;
                             end
                         else
+                            Qtmp = ifft(ifft(ifft(Xk,[],1),[],2),[],3);
+                            Qtmp = Qtmp(1:A.imageDim(1),1:A.imageDim(2),1:A.imageDim(3),:); % remove oversampling
                             if A.numCoils>1
-                                Q = Q + ifft(ifft(ifft(Xk,[],1),[],2),[],3) .* conj(A.sensmaps(:,:,:,ones(A.imageDim(end),1),c));
+                                Q = Q + Qtmp .* conj(A.sensmaps(:,:,:,ones(A.imageDim(end),1),c));
                             else
-                                Q = Q + ifft(ifft(ifft(Xk,[],1),[],2),[],3);
+                                Q = Q + Qtmp;
                             end
                         end
-                    end    
+                    end
                     snc = conj(A.sn);				% [*Nd,1]
                     if length(A.imageDim)==3
                         Q = Q .* snc(:,:,ones(1,A.imageDim(end))); % scaling factors
                     else
                         Q = Q .* snc(:,:,:,ones(1,A.imageDim(end))); % scaling factors
                     end
-                                        
-                % This is the case A*B, where B is an image that is multiplied with the
-                % coil sensitivities. Thereafter the nuFFT is applied
+                    
+                    % This is the case A*B, where B is an image that is multiplied with the
+                    % coil sensitivities. Thereafter the nuFFT is applied
                 else
                     Q = complex(zeros(size(A.p,1), A.numCoils));
                     if length(A.imageDim)==3
-                        B = B .* A.sn(:,:,ones(1,A.imageDim(end)));
+                        B = B .* A.sn(  :,:,ones(1,A.imageDim(end)));
                     else
                         B = B .* A.sn(:,:,:,ones(1,A.imageDim(end)));
                     end
+                    
                     for c=1:A.numCoils
                         if length(A.imageDim) == 3
                             if A.numCoils>1
-                                tmp = fft(fft(B.*A.sensmaps(:,:,  ones(A.imageDim(end),1),c),[],1),[],2);
+                                tmp = fft(fft(B.*A.sensmaps(:,:,  ones(A.imageDim(end),1),c),A.imageDimOS(1),1),A.imageDimOS(2),2);
                             else
-                                tmp = fft(fft(B,[],1),[],2);
+                                tmp = fft(fft(B,A.imageDimOS(1),1),A.imageDimOS(2),2);
                             end
                         else
                             if A.numCoils>1
-                                tmp = fft(fft(fft(B.*A.sensmaps(:,:,:,ones(A.imageDim(end),1),c),[],1),[],2),[],3);
+                                tmp = fft(fft(fft(B.*A.sensmaps(:,:,:,ones(A.imageDim(end),1),c),A.imageDimOS(1),1),A.imageDimOS(2),2),A.imageDimOS(3),3);
                             else
-                                tmp = fft(fft(fft(B,[],1),[],2),[],3);
+                                tmp = fft(fft(fft(B,A.imageDimOS(1),1),A.imageDimOS(2),2),A.imageDimOS(3),3);
                             end
                         end
                         tmp = tmp(:);
                         Q(:,c) = A.p * tmp;
                     end
+                    
                     if ~isempty(A.dcomp)
                         Q = Q .* repmat(A.dcomp, [1 A.numCoils]);
                     end
                 end
                 
-            % now B is the operator and A is the vector
+                % now B is the operator and A is the vector
             elseif isa(B,'nuFFT')
                 Q = mtimes(B',A')';
             else
