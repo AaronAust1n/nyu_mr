@@ -179,17 +179,17 @@ n_iter    = 10;    % Number of ADMM iterations
 n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 
 % Unlike the other plots, the CG plot re-scales each individual frame
-[qMaps, PD, x] = admm_recon(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, [], 1);
+[qMaps, PD, x, r] = admm_recon(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, [], 1);
 return
 
 %% Here is an example on how to add some spatial regularization
 mu1       = 1e-3;   % ADMM Coupling Parameter for dictionary comparison
 lambda    = 5e-4;   % Spatial regularization parameter (l21- or nuclear-norm)
 mu2       = lambda; % ADMM Coupling Parameter for spatial regulization
-n_iter    = 100;    % Number of ADMM iterations
-n_cg_iter = 100;    % Number of CG iterations in each ADMM iteration
+n_iter    = 20;    % Number of ADMM iterations
+n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 
 % P = wavelet_operator([nx ny], 3, 'db2');
 % P = finite_difference_operator([1 2]);
 P = 'nuclear_norm';
-[qMaps, PD, x, r] = admm_recon(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 1);
+[qMaps, PD, x] = admm_recon(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 1);
