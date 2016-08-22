@@ -61,10 +61,16 @@ classdef LR_nuFFT_operator
     % b = rand(N_samples, Nt, Ncoils);
     % x = A' * b;
     %
-    % This operator is a wrapper for Jeff Fesslers nufft. Please cite
-    %   J. A. Fessler and B. P. Sutton, ?Nonuniform fast fourier
-    %   transforms using min-max interpolation,? IEEE Trans. Signal
+    % This operator employs Jeff Fesslers nufft. Please cite
+    %   J. A. Fessler and B. P. Sutton, Nonuniform fast fourier
+    %   transforms using min-max interpolation, IEEE Trans. Signal
     %   Process., vol. 51, no. 2, pp. 560?574, Feb. 2003.
+    %
+    % More details can be found in
+    %   J. Asslaender, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and
+    %   R. Lattanzi, Low Rank Alternating Direction Method of Multipliers
+    %   Reconstruction for MR Fingerprinting  Magn. Reson. Med., epub
+    %   ahead of print, 2016.
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % (c) Jakob Asslaender, August 2016
