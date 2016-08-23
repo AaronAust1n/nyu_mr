@@ -26,6 +26,9 @@ If you use this toolbox for the preparation of a manuscript, please cite above m
 
 _______________________________________
 (c) Jakob Asslaender, August 2016
+
 New York University School of Medicine, Center for Biomedical Imaging
+
 University Medical Center Freiburg, Medical Physics
+
 jakob.asslaender@nyumc.org
