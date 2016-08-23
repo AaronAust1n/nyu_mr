@@ -24,9 +24,8 @@ An example script can be found in the 'example' folder, which demonstrates the i
 
 If you use this toolbox for the preparation of a manuscript, please cite above mentioned paper [1,3]. For questions, suggestions, bug-reports or if you would like to contribute to this toolbox, please feel free to contact me (see email address below).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+_______________________________________
 (c) Jakob Asslaender, August 2016
 New York University School of Medicine, Center for Biomedical Imaging
 University Medical Center Freiburg, Medical Physics
 jakob.asslaender@nyumc.org
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
