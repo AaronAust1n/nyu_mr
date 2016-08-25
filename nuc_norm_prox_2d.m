@@ -49,7 +49,7 @@ f = sqrt(4*abs(b).^2 + e.^2);
 sigma1 = sqrt((d+f)/2);
 sigma2 = sqrt((d-f)/2);
 
-norm = sum(col(sigma1 + sigma2))/mu;
+norm = sum(abs(col(sigma1 + sigma2)))/mu;
 
 g = (e + f)/2;
 h = (e - f)/2;
@@ -101,5 +101,6 @@ qy = (py - qy)./mu;
 y(2,:,:,:) = qy;
 y(1,:,:,:) = qx;
 
+y(isnan(y)) = 0;
 
 end
