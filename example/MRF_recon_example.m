@@ -127,7 +127,7 @@ k(:,2,:) = kr * sin(phi);
 k(:,1,:) = kr * cos(phi);
 
 %% Simulate data
-E = LR_nuFFT_operator(k, [nx ny nt], [], [], 2); % this nuFFT operator does not incorporate a low rank transformation
+E = LR_nuFFT_operator(k, [nx ny], [], [], 2); % this nuFFT operator does not incorporate a low rank transformation
 
 % Simulate noise free data:
 data = E*time_series;
@@ -142,7 +142,7 @@ data = E*time_series;
 % with rank R. The default 5 nearest neighbors are used for interploation 
 % with a Kaiser Bessel Kernel and oversampling with a factor of 2 is 
 % employed. 
-ELR = LR_nuFFT_operator(k, [nx ny R], D.u, [], 2);
+ELR = LR_nuFFT_operator(k, [nx ny], D.u, [], 2);
 
 %% SVD Back Projection Reconstruction
 % Reconstruction as proposed by 
@@ -166,8 +166,8 @@ qMaps = D.lookup_table(idx,:);
 qMaps = reshape(qMaps, [nx, ny, size(D.lookup_table,2)]);
  
 figure(236); imagesc(abs(PD)); colormap gray; title('PD (a.u.)'); colorbar;
-figure(237); imagesc(qMaps(:,:,1)); eval(D.plot_details{1}); title('T1org (s)');    colorbar;
-figure(238); imagesc(qMaps(:,:,2)); eval(D.plot_details{2}); title('T2org (s)');    colorbar;
+figure(237); imagesc(qMaps(:,:,1)); eval(D.plot_details{1}); title('T1_{BP} (s)');    colorbar;
+figure(238); imagesc(qMaps(:,:,2)); eval(D.plot_details{2}); title('T2_{BP} (s)');    colorbar;
 disp('This is the result of the SVD back projection reconstruction.');
 pause;
 
@@ -192,4 +192,4 @@ n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 % P = wavelet_operator([nx ny], 3, 'db2');
 % P = finite_difference_operator([1 2]);
 P = 'nuclear_norm';
-[qMaps, PD, x] = admm_recon(ELR, data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 1);
+[qMaps, PD, x, r] = admm_recon(ELR, data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 1);

@@ -68,7 +68,9 @@ function [qMaps, PD, x, r] = admm_recon(E, data, Dic, ADMM_iter, cg_iter, mu1, m
 % jakob.asslaender@nyumc.org
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% If E is a LR_nuFFT_operator, size returns [nx ny (nz) R(nt)]
+
+%% Manage the input...
+% If E is a LR_nuFFT_operator, size(E,2) returns [nx ny (nz) R(nt)]
 recon_dim = size(E,2);
 
 if nargin < 4 || isempty(ADMM_iter)
@@ -112,71 +114,43 @@ for param = 1:size(Dic.lookup_table,2)
     eval(['persistent h', num2str(param+5)]);
 end
 
+%% Initaialize
+backprojection = E' * data;
+x = 0;
+y = zeros(recon_dim);
+D = zeros(recon_dim);
+if lambda > 0
+    Px = zeros(size(P * backprojection));
+    z = Px;
+    G = Px;
+end
 
-r = zeros(1,ADMM_iter+1);
-for j=0:ADMM_iter
+r = zeros(1,ADMM_iter);
+r_spatial = zeros(1,ADMM_iter);
+r_data = zeros(1,ADMM_iter);
+
+%% ADMM Iterations
+for j=1:ADMM_iter
     tic;
     
-    if j == 0
-        backprojection = E' * data;
-        if lambda > 0
-            f = @(x) E'*(E*x) + mu2 * (P' * (P * x));
-        else
-            f = @(x) E'*(E*x);
-        end
-        x = conjugate_gradient(f,backprojection,1e-6,cg_iter,[],verbose);
-        
-        y = zeros(size(x));
-        D   = zeros(prod(recon_dim(1:end-1)), recon_dim(end));
-        if lambda > 0
-            Px = P * x;
-            z = zeros(size(Px));
-            G = z;
-            G_old = z;
-        end
+    %% update x
+    b = backprojection - mu1 * y + mu1 * D .* repmat(sum(conj(D) .* y, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)]);
+    if lambda > 0
+        b = b + mu2 * (P' * (G - z));
+        % if j==0, mu1 = 0 in order to realize (DDh)_0 = 1
+        f = @(x) E'*(E*x) + (mu1 * (j>1)) * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)])) + mu2 * (P' * (P * x));
     else
-        b = backprojection - mu1 * y + mu1 * D .* repmat(sum(conj(D) .* y, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)]);
-        
-        if lambda > 0
-            G_old = G;
-            if nuc_flag
-                G = nuc_norm_prox_2d(Px+z,lambda,mu2);
-            else
-                G = Px + z;
-                Tl2 = l2_norm(G, length(size(G)));
-                G = G - G ./ repmat(Tl2, [ones(1, length(size(G))-1) recon_dim(end)]) * lambda/mu2;
-                G(isnan(G)) = 0;
-                G = G .* repmat(Tl2 > lambda/mu2, [ones(1, length(size(G))-1) recon_dim(end)]);
-            end
-            b = b + mu2 * (P' * (G - z));
-            
-            f = @(x) E'*(E*x) + mu1 * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)])) + mu2 * (P' * (P * x));
-        else
-            f = @(x) E'*(E*x) + mu1 * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)]));
-        end
-        x = conjugate_gradient(f,b,1e-6,cg_iter,x,verbose);
-        
-        if lambda > 0
-            Px = P * x;
-            z = z + Px - G;
-            
-            % Dynamic update of mu2 according to Boyd et al. 2011
-            ss = l2_norm(1 * (P' * (G - G_old)));
-            rs = l2_norm(Px - G);
-%             if rs > 10 * ss
-%                 mu2 = 2*mu2;
-%                 z = z/2;
-%             elseif ss > 10 * rs
-%                 mu2 = mu2/2;
-%                 z = 2*z;
-%             end
-        end
+        % if j==0, mu1 = 0 in order to realize (DDh)_0 = 1
+        f = @(x) E'*(E*x) + (mu1 * (j>1)) * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)]));
     end
+    x = conjugate_gradient(f,b,1e-6,cg_iter,x,verbose);
+    
+    
+    %% update D and y (and claculate PD and qMaps for the output)
     x  = reshape(x, [prod(recon_dim(1:end-1)), recon_dim(end)]);
     y  = reshape(y, [prod(recon_dim(1:end-1)), recon_dim(end)]);
     D  = reshape(D, [prod(recon_dim(1:end-1)), recon_dim(end)]);
     
-    clear idx
     for q=size(x,1):-1:1
         Dx = x(q,:) * Dic.magnetization;
         Dy = y(q,:) * Dic.magnetization;
@@ -200,20 +174,48 @@ for j=0:ADMM_iter
     DDhx = D .* repmat(Dhx, [ones(1,length(recon_dim)-1) recon_dim(end)]);
     y = y + x - DDhx;
     
-    
-    % Dynamic update of mu2 according to Boyd et al. 2011
+    % Dynamic update of mu1 according to Boyd et al. 2011
     sd = l2_norm(mu1 * (DDhx - DDhx_old));
     rd = l2_norm(x - DDhx);
-%     if rd > 10 * sd
-%         mu1 = 2*mu1;
-%         y = y/2;
-%     elseif sd > 10 * rd
-%         mu1 = mu1/2;
-%         y = 2*y;
-%     end
+    %     if rd > 10 * sd
+    %         mu1 = 2*mu1;
+    %         y = y/2;
+    %     elseif sd > 10 * rd
+    %         mu1 = mu1/2;
+    %         y = 2*y;
+    %     end
+    
+    %% update G and z
+    if lambda > 0
+        G_old = G;
+        Px = P * x;
+        if nuc_flag
+%             Pxz = reshape(reshape(Px+z, [], 5)/Dic.s, [2, recon_dim]);
+            G = nuc_norm_prox_2d(Px+z,lambda,mu2);
+%             G = reshape(reshape(G, [], 5)*Dic.s, [2, recon_dim]);
+        else
+            G = Px + z;
+            Tl2 = l2_norm(G, length(size(G)));
+            G = G ./ repmat(Tl2, [ones(1, length(size(G))-1) recon_dim(end)]);
+            G(isnan(G)) = 0;
+            G = G .* repmat(max(Tl2 - lambda/mu2, 0), [ones(1, length(size(G))-1) recon_dim(end)]);
+        end
+        z = z + Px - G;
+        
+        % Dynamic update of mu2 according to Boyd et al. 2011
+        rs = l2_norm(Px - G);
+        ss = l2_norm(mu2 * (P' * (G - G_old)));
+        %             if rs > 10 * ss
+        %                 mu2 = 2*mu2;
+        %                 z = z/2;
+        %             elseif ss > 10 * rs
+        %                 mu2 = mu2/2;
+        %                 z = 2*z;
+        %             end
+    end
     
     
-    % Below here is just plotting stuff...
+    %% Below here is just plotting stuff...
     if verbose == 1
         % display D*Dh*x and (x-D*Dh*x)
         if (isempty(h1) || ~ishandle(h1)), h1 = figure; end; set(0,'CurrentFigure',h1);
@@ -248,10 +250,10 @@ for j=0:ADMM_iter
         
         disp(['primal residual (dictionary) = ', num2str(rd)]);
         disp(['dual   residual (dictionary) = ', num2str(sd)]);
-%         disp(['next mu1 = ', num2str(mu1)]);
-        if j>0 && lambda>0
+        %         disp(['next mu1 = ', num2str(mu1)]);
+        if lambda>0
             if (isempty(h4) || ~ishandle(h4)), h4 = figure; end; set(0,'CurrentFigure',h4);
-            imagesc34d(abs(P'*G), 1, [], [0 .1]); title('P''*G');
+            imagesc34d(abs(P'*G), 0, []); title('P''*G'); axis off; colorbar
             
             disp(['primal residual (spatial) = ', num2str(rs)]);
             disp(['dual   residual (spatial) = ', num2str(ss)]);
@@ -259,18 +261,17 @@ for j=0:ADMM_iter
         end
         
         if nargout > 3
-            r(1,j+1) = 0.5 * l2_norm(E*DDhx - data).^2;
+            r(1,j) = 0.5 * l2_norm(E*DDhx - data).^2;
             if lambda > 0
                 if nuc_flag
                     [~, r_spatial] = nuc_norm_prox_2d(P * DDhx,1,1);
                 else
-                    r_spatial = P * DDhx;
-                    r_spatial = sum(abs(col(l2_norm(r_spatial, length(size(r_spatial))))));
+                    r_spatial = sum(abs(col(l2_norm(P * DDhx, length(size(Px))))));
                 end
-                r(1,j+1) = r(1,j+1) + lambda*r_spatial;
+                r(1,j) = r(1,j) + lambda*r_spatial;
             end
             if (isempty(h5) || ~ishandle(h5)), h5 = figure; end; set(0,'CurrentFigure',h5);
-            plot(0:j, log(r(1,1:j+1)), 'o');
+            plot(1:j, log(r(1,1:j)), 'o');
             xlabel('iteration'); ylabel('log(r)');
             
             drawnow;
@@ -280,4 +281,5 @@ for j=0:ADMM_iter
             toc
         end
     end
+end
 end

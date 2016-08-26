@@ -15,11 +15,8 @@ classdef LR_nuFFT_operator
     %                time frames to be transformed.
     %                k-space is defined in the range -pi - pi
     %
-    %     imageDim = [1 3(4)] (obligatory)
-    %                [Nx Ny (Nz) R]: Dimensions of the 4D image.
-    %                The first 2 or 3 dimension are the spatial ones and
-    %                the last one is the rank of the approximation or the
-    %                number of time points, if u = [].
+    %     imageDim = [1 2(3)] (obligatory)
+    %                [Nx Ny (Nz)]: Spatial dimensions of the image.
     %
     %            u = [Nt R] (optional)
     %                Matrix that transform the temporal domain into a
@@ -97,6 +94,9 @@ classdef LR_nuFFT_operator
             
             if nargin > 2 && ~isempty(u)
                 u = double(u);
+                imageDim(end+1) = size(u,2);          % Add rank
+            else
+                imageDim(end+1) = size(trajectory,3); % Add nt     
             end
             
             
