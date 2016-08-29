@@ -15,11 +15,8 @@ classdef LR_nuFFT_operator
     %                time frames to be transformed.
     %                k-space is defined in the range -pi - pi
     %
-    %     imageDim = [1 3(4)] (obligatory)
-    %                [Nx Ny (Nz) R]: Dimensions of the 4D image.
-    %                The first 2 or 3 dimension are the spatial ones and
-    %                the last one is the rank of the approximation or the
-    %                number of time points, if u = [].
+    %     imageDim = [1 2(3)] (obligatory)
+    %                [Nx Ny (Nz)]: Spatial dimensions of the image.
     %
     %            u = [Nt R] (optional)
     %                Matrix that transform the temporal domain into a
@@ -97,6 +94,9 @@ classdef LR_nuFFT_operator
             
             if nargin > 2 && ~isempty(u)
                 u = double(u);
+                imageDim(end+1) = size(u,2);          % Add rank
+            else
+                imageDim(end+1) = size(trajectory,3); % Add nt     
             end
             
             
@@ -193,7 +193,7 @@ classdef LR_nuFFT_operator
         end
         
         function s = size(A,n)
-            t1 = [A.trajectory_length, A.numCoils, size(A.p,1)/A.trajectory_length];
+            t1 = [size(A.p,1), A.numCoils];
             t2 = A.imageDim;
             
             if A.adjoint
@@ -247,6 +247,7 @@ classdef LR_nuFFT_operator
                         end
                         Q = Q .* snc(:,:,:,ones(1,A.imageDim(end))); % scaling
                     end
+                    Q = Q * sqrt(prod(A.imageDimOS(1:end-1)));
                     
                     % This is the case A*B, where B is an image that is multiplied with the
                     % coil sensitivities. Thereafter the LR_nuFFT_operator is applied
@@ -272,6 +273,7 @@ classdef LR_nuFFT_operator
                     if ~isempty(A.dcomp)
                         Q = Q .* repmat(A.dcomp, [1 A.numCoils]);
                     end
+                    Q = Q / sqrt(prod(A.imageDimOS(1:end-1)));
                 end
             elseif isa(B,'LR_nuFFT_operator') % now B is the operator and A is the vector
                 Q = mtimes(B',A')';

@@ -20,6 +20,8 @@ function imagesc34d(X, rescale, rc, varargin)
 %   rc       = [rows colums]: Specify the number of rows and columns
 %   varargin = All inputs exceeding 3 are forwarded to imagesc
 %
+% If X is complex valued, its absolute value is plotted instead.
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % (c) Jakob Asslaender, August 2016
 % New York University School of Medicine, Center for Biomedical Imaging
@@ -74,9 +76,17 @@ for k=1:slices
 end
 
 if isempty(varargin)
-    imagesc(M);
+    if isreal(M)
+        imagesc(M);
+    else
+        imagesc(abs(M));
+    end
 else
-    imagesc(M, varargin{:});
+    if isreal(M)
+        imagesc(M, varargin{:});
+    else
+        imagesc(abs(M), varargin{:});
+    end
 end
 
 end
