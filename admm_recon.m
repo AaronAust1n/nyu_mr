@@ -126,8 +126,6 @@ if lambda > 0
 end
 
 r = zeros(1,ADMM_iter);
-r_spatial = zeros(1,ADMM_iter);
-r_data = zeros(1,ADMM_iter);
 
 %% ADMM Iterations
 for j=1:ADMM_iter
