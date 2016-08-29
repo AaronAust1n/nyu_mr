@@ -220,5 +220,31 @@ for j=0:ADMM_iter
 
 end
 
+
+%Get objective functional
 opt.objective = opt.data + lambda*opt.reg;
 
+
+
+%Get Proton density and qMaps
+
+    %Reshape
+    x  = reshape(x, [prod(recon_dim(1:end-1)), recon_dim(end)]);
+
+    %Fit to dict
+    for q=size(x,1):-1:1
+        [c(q,1),idx(q,1)] = max(x(q,:) * conj(Dic.magnetization), [], 2);
+    end
+    %Proton density (conjugation as in original code)
+    PD = conj(c) ./ Dic.normalization(idx).';
+    %qMaps
+    qMaps = Dic.lookup_table(idx,:);
+
+    %Reshape back
+    x   = reshape(x,    recon_dim);
+    PD  = reshape(PD,   recon_dim(1:end-1));
+    qMaps = reshape(qMaps, [recon_dim(1:end-1), size(Dic.lookup_table,2)]);
+
+    
+    
+    
