@@ -3,6 +3,7 @@
 
 if 0
 
+
 %% Set some  parameters
 R  = 5;    % Rank of approximation
 nx = 128;  % Image size
@@ -91,7 +92,7 @@ k(:,2,:) = kr * sin(phi);
 k(:,1,:) = kr * cos(phi);
 
 %% Simulate data
-E = LR_nuFFT_operator(k, [nx ny nt], [], [], 2); % this nuFFT operator does not incorporate a low rank transformation
+E = LR_nuFFT_operator(k, [nx ny], [], [], 2); % this nuFFT operator does not incorporate a low rank transformation
 
 % Simulate noise free data:
 data = E*time_series;
@@ -106,7 +107,7 @@ data = E*time_series;
 % with rank R. The default 5 nearest neighbors are used for interploation 
 % with a Kaiser Bessel Kernel and oversampling with a factor of 2 is 
 % employed. 
-ELR = LR_nuFFT_operator(k, [nx ny R], D.u, [], 2);
+ELR = LR_nuFFT_operator(k, [nx ny], D.u, [], 2);
 
 
 end
@@ -133,6 +134,8 @@ s2 = t1(:)'*Est2(:);
 
 s1
 s2
+
+abs(s1-s2)
 
 
 

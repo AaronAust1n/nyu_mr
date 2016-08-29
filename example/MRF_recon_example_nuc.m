@@ -37,7 +37,7 @@
 % University Medical Center Freiburg, Medical Physics
 % jakob.asslaender@nyumc.org
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%close all; clear;
+
 
 %% Set some  parameters
 R  = 5;    % Rank of approximation
@@ -127,13 +127,13 @@ k(:,2,:) = kr * sin(phi);
 k(:,1,:) = kr * cos(phi);
 
 %% Simulate data
-E = LR_nuFFT_operator(k, [nx ny nt], [], [], 2); % this nuFFT operator does not incorporate a low rank transformation
+E = LR_nuFFT_operator(k, [nx ny], [], [], 2); % this nuFFT operator does not incorporate a low rank transformation
 
 % Simulate noise free data:
 data = E*time_series;
 
 % uncomment to test the reconstructions with noise of SNRin = 100 [1]:
-% data = E*(time_series + (randn(size(time_series)) + 1i * randn(size(time_series)))/100);
+ data = E*(time_series + (randn(size(time_series)) + 1i * randn(size(time_series)))/100);
 
 
 %% Construct low rank nuFFT Operator
@@ -142,7 +142,7 @@ data = E*time_series;
 % with rank R. The default 5 nearest neighbors are used for interploation 
 % with a Kaiser Bessel Kernel and oversampling with a factor of 2 is 
 % employed. 
-ELR = LR_nuFFT_operator(k, [nx ny R], D.u, [], 2);
+ELR = LR_nuFFT_operator(k, [nx ny], D.u, [], 2);
 
 %% SVD Back Projection Reconstruction
 % Reconstruction as proposed by 
@@ -166,8 +166,8 @@ qMaps = D.lookup_table(idx,:);
 qMaps = reshape(qMaps, [nx, ny, size(D.lookup_table,2)]);
  
 %figure(236); imagesc(abs(PD)); colormap gray; title('PD (a.u.)'); colorbar;
-%figure(237); imagesc(qMaps(:,:,1)); eval(D.plot_details{1}); title('T1org (s)');    colorbar;
-%figure(238); imagesc(qMaps(:,:,2)); eval(D.plot_details{2}); title('T2org (s)');    colorbar;
+%figure(237); imagesc(qMaps(:,:,1)); eval(D.plot_details{1}); title('T1_{BP} (s)');    colorbar;
+%figure(238); imagesc(qMaps(:,:,2)); eval(D.plot_details{2}); title('T2_{BP} (s)');    colorbar;
 %disp('This is the result of the SVD back projection reconstruction.');
 %pause;
 
@@ -201,9 +201,9 @@ P = 'nuclear_norm';
     else %Nuc reg
 
 %% Here is an example on how to add some spatial regularization
-mu1       = 1e-2;   % ADMM Coupling Parameter for dictionary comparison 1e-3
-lambda    = 1e-3;   % Spatial regularization parameter (l21- or nuclear-norm) 5e-4
-mu2       = 1e-2; % ADMM Coupling Parameter for spatial regulization lambda
+mu1       = 1;   % ADMM Coupling Parameter for dictionary comparison 1e-3
+lambda    = 0.05;   % Spatial regularization parameter (l21- or nuclear-norm) 5e-4
+mu2       = 1; % ADMM Coupling Parameter for spatial regulization lambda
 n_iter    = 20;    % Number of ADMM iterations
 n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 
@@ -214,8 +214,8 @@ P = 'nuclear_norm';
 
     if 0
 
-        mu = [0.001:0.005:0.1];
-        lambda = [5e-4:0.0005:5e-2];
+        mu = [1,0.1,10,0.05,50,0.01,100];
+        lambda = [0.02,0.05,0.1,0.5,0.01,1];
 
         for ii=1:length(mu)
         for jj=1:length(lambda)
@@ -231,7 +231,7 @@ P = 'nuclear_norm';
         end
     else
 
-        [qMaps, PD, x, Dz, obt] = admm_recon_nuc_ld_dat(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 0);
+        [qMaps, PD, x, Dz, obt] = admm_recon_nuc(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 0);
 
     end
     
