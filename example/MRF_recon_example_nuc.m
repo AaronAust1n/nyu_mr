@@ -202,7 +202,7 @@ P = 'nuclear_norm';
 
 %% Here is an example on how to add some spatial regularization
 mu1       = 1e-2;   % ADMM Coupling Parameter for dictionary comparison 1e-3
-lambda    = 5e-3;   % Spatial regularization parameter (l21- or nuclear-norm) 5e-4
+lambda    = 1e-3;   % Spatial regularization parameter (l21- or nuclear-norm) 5e-4
 mu2       = 1e-2; % ADMM Coupling Parameter for spatial regulization lambda
 n_iter    = 20;    % Number of ADMM iterations
 n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
@@ -210,7 +210,33 @@ n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 % P = wavelet_operator([nx ny], 3, 'db2');
 % P = finite_difference_operator([1 2]);
 P = 'nuclear_norm';
-[qMaps, PD, x, Dz, obt] = admm_recon_nuc(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 0);
 
 
+    if 0
+
+        mu = [0.001:0.005:0.1];
+        lambda = [5e-4:0.0005:5e-2];
+
+        for ii=1:length(mu)
+        for jj=1:length(lambda)
+
+        [qMaps, PD, x, Dz, obt] = admm_recon_nuc(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu(ii), mu(ii), lambda(jj), P, 0);
+
+        cmu = mu(ii);
+        clambda = lambda(jj);
+
+        save(['results/nuc_test_it50_munr_',num2str(ii),'_ldnr_',num2str(jj)],'obt','x','cmu','clambda');
+
+        end
+        end
+    else
+
+        [qMaps, PD, x, Dz, obt] = admm_recon_nuc_ld_dat(ELR, [nx ny R], data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 0);
+
+    end
+    
+
+    
+    
+    
     end
