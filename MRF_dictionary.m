@@ -1,4 +1,4 @@
-function D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx, R)
+function D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx, R, slice_profile)
 % Calculates a dictionary for a fingerprinting sequences with the flip
 % angle alpha. TR0 is either constant (pSSFP = 0) or follows the pSSFP
 % pattern (pSSFP = 1)
@@ -37,12 +37,12 @@ function D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx, R)
 %   D.parameter{:}  =  Strings specifying the parameters in the order of the
 %                      look-up table
 %   D.u             in [Nt R]
-%                      Compression matrix resulting from the SVD of the 
+%                      Compression matrix resulting from the SVD of the
 %                      dictionary; empty if R is empty.
 %
-% For the pSSFP pattern, please refer to 
-%   J. Assländer, S. J. Glaser, and J. Hennig, Pseudo Steady-State 
-%   Free Precession for MR-Fingerprinting, Magn. Reson. Med., epub 
+% For the pSSFP pattern, please refer to
+%   J. Assländer, S. J. Glaser, and J. Hennig, Pseudo Steady-State
+%   Free Precession for MR-Fingerprinting, Magn. Reson. Med., epub
 %   ahead of print, 2016.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -55,8 +55,11 @@ function D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx, R)
 if nargin < 3 || isempty(w)
     w = 0;
 end
-if nargin < 5 || isempty(pSSFP)
+if nargin < 6 || isempty(pSSFP)
     pSSFP = 0;
+end
+if nargin < 9 || isempty(slice_profile)
+    slice_profile = 1;
 end
 
 
@@ -89,11 +92,18 @@ if length(w) > 1
     T2 = repmat(T2', [1, size(T1,2), length(w)]);
     w  = repmat(reshape(w, [1 1 length(w)]), [size(T2,1), size(T1,2), 1]);
     w = w(:); T1 = T1(:); T2 = T2(:);
+%     T12idx = T1>=T2;
+%     T1 = T1(T12idx);
+%     T2 = T2(T12idx);
+%     w  =  w(T12idx);
     T12_dict = [T1, T2, w];
 else
     T1 = repmat(T1, [length(T2), 1]);
     T2 = repmat(T2', [1 size(T1,2)]);
     T1 = T1(:); T2 = T2(:);
+%     T12idx = T1>=T2;
+%     T1 = T1(T12idx);
+%     T2 = T2(T12idx);
     T12_dict = [T1, T2];
 end
 T1 = T1.';
@@ -106,42 +116,44 @@ w = w.';
 Rot = @(alpha) [cos(alpha) -sin(alpha);
     sin(alpha)  cos(alpha)];
 
-M = complex(zeros(2, length(T1)));
-M(2,:) = 1;
 d = complex(ones(2, length(T1)));
-m_dict = zeros(length(alpha),length(T1));
+m_dict = zeros(length(alpha),length(T1),length(slice_profile));
 
-for ip=1:length(alpha)
-    % Apply RF-pulse (that now acts only on the real part)
-    Mtmp = Rot(alpha(ip)*round(cos(ip*pi))) * real(M);
-    M = Mtmp + 1i*imag(M);
-    
-    % Free precession for TE
-    if any(w~= 0)
-        d(1,:) = exp(-1i*w*TE(ip));
-        M = d .* M;
+for is = 1:length(slice_profile);
+    M = complex(zeros(2, length(T1)));
+    M(2,:) = -1;  % inversion pulse
+    for ip=1:length(alpha)
+        % Apply RF-pulse (that now acts only on the real part)
+        Mtmp = Rot(slice_profile(is)*alpha(ip)*round(cos(ip*pi))) * real(M);
+        M = Mtmp + 1i*imag(M);
+        
+        % Free precession for TE
+        if any(w~= 0)
+            d(1,:) = exp(-1i*w*TE(ip));
+            M = d .* M;
+        end
+        
+        % Relaxation
+        M(1,:) = M(1,:) .* exp(-TE(ip)./T2);
+        M(2,:) = ones(1,size(M,2)) + (M(2,:)-ones(1,size(M,2))) .* exp(-TE(ip)./T1);
+        
+        % store the signal at the echo time
+        m_dict(ip,:,is) = M(1,:)*cos(pi*ip);
+        
+        % Relaxation
+        M(1,:) = M(1,:) .* exp(-TD(ip)./T2);
+        M(2,:) = ones(1,size(M,2)) + (M(2,:)-ones(1,size(M,2))) .* exp(-TD(ip)./T1);
+        
+        % Free precession for TD
+        if any(w~= 0)
+            d(1,:) = exp(-1i*w*TD(ip));
+            M = d .* M;
+        end
     end
-    
-    % Relaxation
-    M(1,:) = M(1,:) .* exp(-TE(ip)./T2);
-    M(2,:) = ones(1,size(M,2)) + (M(2,:)-ones(1,size(M,2))) .* exp(-TE(ip)./T1);
-    
-    % Calculate Signal at the echo time
-    for iT1 = 1:length(T1);
-        m_dict(ip,iT1) = M(1,iT1)*cos(pi*ip);
-    end
-    
-    % Relaxation
-    M(1,:) = M(1,:) .* exp(-TD(ip)./T2);
-    M(2,:) = ones(1,size(M,2)) + (M(2,:)-ones(1,size(M,2))) .* exp(-TD(ip)./T1);
-    
-    % Free precession for TD
-    if any(w~= 0)
-        d(1,:) = exp(-1i*w*TD(ip));
-        M = d .* M;
-    end
-    
 end
+
+% sum over the slice profile
+m_dict = sum(m_dict,3);
 
 % Remove unaquired time frames
 if nargin > 6 && ~isempty(idx)

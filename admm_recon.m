@@ -136,7 +136,8 @@ for j=1:ADMM_iter
     if lambda > 0
         b = b + mu2 * (P' * (G - z));
         % if j==0, mu1 = 0 in order to realize (DDh)_0 = 1
-        f = @(x) E'*(E*x) + (mu1 * (j>1)) * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)])) + mu2 * (P' * (P * x));
+        f = @(x) E'*(E*x) + (mu1 * (j>1)) * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)])) + (mu2 * (j>1)) * (P' * (P * x));
+        %         f = @(x) E'*(E*x) + (mu1 * (j>1)) * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)])) + mu2 * (P' * (P * x));
     else
         % if j==0, mu1 = 0 in order to realize (DDh)_0 = 1
         f = @(x) E'*(E*x) + (mu1 * (j>1)) * (x - D .* repmat(sum(conj(D) .* x, length(recon_dim)), [ones(1,length(recon_dim)-1) recon_dim(end)]));
@@ -188,28 +189,28 @@ for j=1:ADMM_iter
         G_old = G;
         Px = P * x;
         if nuc_flag
-%             Pxz = reshape(reshape(Px+z, [], 5)/Dic.s, [2, recon_dim]);
+            %             Pxz = reshape(reshape(Px+z, [], 5)/Dic.s, [2, recon_dim]);
             G = nuc_norm_prox_2d(Px+z,lambda,mu2);
-%             G = reshape(reshape(G, [], 5)*Dic.s, [2, recon_dim]);
+            %             G = reshape(reshape(G, [], 5)*Dic.s, [2, recon_dim]);
         else
             G = Px + z;
             Tl2 = l2_norm(G, length(size(G)));
             G = G ./ repmat(Tl2, [ones(1, length(size(G))-1) recon_dim(end)]);
-            G(isnan(G)) = 0;
             G = G .* repmat(max(Tl2 - lambda/mu2, 0), [ones(1, length(size(G))-1) recon_dim(end)]);
+            G(isnan(G)) = 0;
         end
         z = z + Px - G;
         
         % Dynamic update of mu2 according to Boyd et al. 2011
         rs = l2_norm(Px - G);
         ss = l2_norm(mu2 * (P' * (G - G_old)));
-        %             if rs > 10 * ss
-        %                 mu2 = 2*mu2;
-        %                 z = z/2;
-        %             elseif ss > 10 * rs
-        %                 mu2 = mu2/2;
-        %                 z = 2*z;
-        %             end
+        if rs > 10 * ss
+            mu2 = 2*mu2;
+            z = z/2;
+        elseif ss > 10 * rs
+            mu2 = mu2/2;
+            z = 2*z;
+        end
     end
     
     
@@ -225,7 +226,7 @@ for j=1:ADMM_iter
         if (isempty(h3) || ~ishandle(h3)), h3 = figure; end; set(0,'CurrentFigure',h3);
         imagesc34d(abs(PD)); colorbar; axis off; title('PD (a.u.)');
         if isfield(Dic, 'plot_details') && length(Dic.plot_details)>size(Dic.lookup_table,2) && ~isempty(Dic.plot_details{size(Dic.lookup_table,2)+1})
-            eval(Dic.plot_details{size(Dic.lookup_table,2)+1});
+            eval(Dic.plot_details{end});
         end
         
         if length(size(PD))==2
@@ -246,16 +247,9 @@ for j=1:ADMM_iter
             end
         end
         
-        disp(['primal residual (dictionary) = ', num2str(rd)]);
-        disp(['dual   residual (dictionary) = ', num2str(sd)]);
-        %         disp(['next mu1 = ', num2str(mu1)]);
         if lambda>0
             if (isempty(h4) || ~ishandle(h4)), h4 = figure; end; set(0,'CurrentFigure',h4);
             imagesc34d(abs(P'*G), 0, []); title('P''*G'); axis off; colorbar
-            
-            disp(['primal residual (spatial) = ', num2str(rs)]);
-            disp(['dual   residual (spatial) = ', num2str(ss)]);
-            disp(['next mu2 = ', num2str(mu2)]);
         end
         
         if nargout > 3
@@ -270,13 +264,23 @@ for j=1:ADMM_iter
             end
             if (isempty(h5) || ~ishandle(h5)), h5 = figure; end; set(0,'CurrentFigure',h5);
             plot(1:j, log(r(1,1:j)), 'o');
-            xlabel('iteration'); ylabel('log(r)');
+            xlabel('iteration'); ylabel('log(r)'); title('objective function');
             
             drawnow;
         end
+        
         if verbose > 0
             display(['Iteration ', num2str(j)]);
+            disp(['primal residual (dictionary) = ', num2str(rd)]);
+            disp(['dual   residual (dictionary) = ', num2str(sd)]);
+            %         disp(['next mu1 = ', num2str(mu1)]);
+            if lambda>0
+                disp(['primal residual (spatial) = ', num2str(rs)]);
+                disp(['dual   residual (spatial) = ', num2str(ss)]);
+                disp(['next mu2 = ', num2str(mu2)]);
+            end
             toc
+            disp(' ');
         end
     end
 end
