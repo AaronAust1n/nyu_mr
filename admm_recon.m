@@ -213,6 +213,22 @@ for j=1:ADMM_iter
         end
     end
     
+    %% End of actual algorithm
+    
+    
+    %% Caclulate Residuum (only if it is desired)
+    if nargout > 3
+        r(1,j) = 0.5 * l2_norm(E*DDhx - data).^2;
+        if lambda > 0
+            if nuc_flag
+                [~, r_spatial] = nuc_norm_prox_2d(P * DDhx,1,1);
+            else
+                r_spatial = sum(abs(col(l2_norm(P * DDhx, length(size(Px))))));
+            end
+            r(1,j) = r(1,j) + lambda*r_spatial;
+        end
+    end
+    
     
     %% Below here is just plotting stuff...
     if verbose == 1
@@ -229,7 +245,7 @@ for j=1:ADMM_iter
             eval(Dic.plot_details{end});
         end
         
-        if length(size(PD))==2
+        if length(size(PD)) == 2
             for param = 1:size(qMaps,3)
                 eval(['if (isempty(h', num2str(param+5), ') || ~ishandle(h', num2str(param+5), ')), h', num2str(param+5), ' = figure; end; set(0,''CurrentFigure'',h', num2str(param+5), ');']);
                 imagesc34d(qMaps(:,:  ,param)); colorbar; axis off;
@@ -247,41 +263,31 @@ for j=1:ADMM_iter
             end
         end
         
-        if lambda>0
+        if lambda > 0
             if (isempty(h4) || ~ishandle(h4)), h4 = figure; end; set(0,'CurrentFigure',h4);
             imagesc34d(abs(P'*G), 0, []); title('P''*G'); axis off; colorbar
         end
         
         if nargout > 3
-            r(1,j) = 0.5 * l2_norm(E*DDhx - data).^2;
-            if lambda > 0
-                if nuc_flag
-                    [~, r_spatial] = nuc_norm_prox_2d(P * DDhx,1,1);
-                else
-                    r_spatial = sum(abs(col(l2_norm(P * DDhx, length(size(Px))))));
-                end
-                r(1,j) = r(1,j) + lambda*r_spatial;
-            end
             if (isempty(h5) || ~ishandle(h5)), h5 = figure; end; set(0,'CurrentFigure',h5);
             plot(1:j, log(r(1,1:j)), 'o');
             xlabel('iteration'); ylabel('log(r)'); title('objective function');
-            
-            drawnow;
         end
-        
-        if verbose > 0
-            display(['Iteration ', num2str(j)]);
-            disp(['primal residual (dictionary) = ', num2str(rd)]);
-            disp(['dual   residual (dictionary) = ', num2str(sd)]);
-            %         disp(['next mu1 = ', num2str(mu1)]);
-            if lambda>0
-                disp(['primal residual (spatial) = ', num2str(rs)]);
-                disp(['dual   residual (spatial) = ', num2str(ss)]);
-                disp(['next mu2 = ', num2str(mu2)]);
-            end
-            toc
-            disp(' ');
+        drawnow;
+    end
+    
+    if verbose > 0
+        display(['Iteration ', num2str(j)]);
+        disp(['primal residual (dictionary) = ', num2str(rd)]);
+        disp(['dual   residual (dictionary) = ', num2str(sd)]);
+        %         disp(['next mu1 = ', num2str(mu1)]);
+        if lambda > 0
+            disp(['primal residual (spatial) = ', num2str(rs)]);
+            disp(['dual   residual (spatial) = ', num2str(ss)]);
+            disp(['next mu2 = ', num2str(mu2)]);
         end
+        toc
+        disp(' ');
     end
 end
 end
