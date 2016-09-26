@@ -1,4 +1,4 @@
-function imagesc34d(X, rescale, rc, varargin)
+function im = imagesc34d(X, rescale, rc, varargin)
 % Function to 2D, 3D or 4D data
 %
 % imagesc34d(X)
@@ -11,10 +11,10 @@ function imagesc34d(X, rescale, rc, varargin)
 %   X        = Array of data that can have 2-4 dimension:
 %              2D data: This function is equivalent to imagesc
 %              3D data: A mosaic is formed with approx. as many rows as
-%                       columns, if rc not specified in rc.
+%                       columns, if rc not specified.
 %              4D data: A mosaic is formed where dim. 3 is plotted in
-%                       columns and dim. 4 is plotted in rows, if rc not 
-%                       specified in rc.
+%                       columns and dim. 4 is plotted in rows, if rc not
+%                       specified.
 %   rescale  = 0: Scale all mosaic images the same
 %              1: Devide all mosaic images by its maximum
 %   rc       = [rows colums]: Specify the number of rows and columns
@@ -75,17 +75,21 @@ for k=1:slices
     end
 end
 
-if isempty(varargin)
-    if isreal(M)
+if ~isreal(M)
+    M = abs(M);
+end
+
+if nargout == 0
+    if isempty(varargin)
         imagesc(M);
     else
-        imagesc(abs(M));
+        imagesc(M, varargin{:});
     end
 else
-    if isreal(M)
-        imagesc(M, varargin{:});
+    if isempty(varargin)
+        im = imagesc(M);
     else
-        imagesc(abs(M), varargin{:});
+        im = imagesc(M, varargin{:});
     end
 end
 
