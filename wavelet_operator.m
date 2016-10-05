@@ -31,6 +31,7 @@ classdef wavelet_operator
         N = [];         % Order of wavelet transformation
         wname = '';     % Name of the wavelet
         adjoint = 0;    % Boolean indicating if the matrix is adjoint
+        rand_shift = [];
     end
     
     methods
@@ -59,6 +60,9 @@ classdef wavelet_operator
                     W.space = 3;
                 end
             end
+            
+            W.rand_shift = zeros(1,length(dim));
+            
             if W.space==0
                 W.params.sizes = [];
                 W.params.sizeINI = [];
@@ -111,41 +115,42 @@ classdef wavelet_operator
             end
         end
         
-        function A = ctranspose(A)
+        function W = ctranspose(W)
             % Sets the objection in the adjoint mode.
             % Called when using A'
-            A.adjoint = ~A.adjoint;
+            W.adjoint = ~W.adjoint;
         end
         
-        function Q = mtimes(A,B)
+        function Q = mtimes(W,B)
             % Performs the actual wavelet calculation.
             %   Called when using A*B or A'*B
             %   Input: A is usually the wavelet operator
             %          B is the image (adjoint=0) or a vector of wavelet
             %            components (adjoint=1)
             
-            if isa(A, 'wavelet_operator')
-                if A.adjoint
-                    if A.space==1
+            if isa(W, 'wavelet_operator')
+                if W.adjoint
+                    B = circshift(B, W.rand_shift);
+                    if W.space==1
                         for i=size(B,2):-1:1
-                            Q(:,i) = conj(waverec(B(:,i),A.params.sizes,A.wname));
+                            Q(:,i) = conj(waverec(B(:,i),W.params.sizes,W.wname));
                         end
-                    elseif A.space==2
+                    elseif W.space==2
                         for i=size(B,2):-1:1
-                            Q(:,:,i) = conj(waverec2(B(:,i),A.params.sizes,A.wname));
+                            Q(:,:,i) = conj(waverec2(B(:,i),W.params.sizes,W.wname));
                         end
-                    elseif A.space==3
-                        X.sizeINI = A.params.sizeINI;
-                        X.level = A.params.level;
-                        X.mode = A.params.mode;
-                        X.filters = A.params.filters;
-                        X.sizes = A.params.sizes;
-                        ps = prod(A.sizes_all,2);
+                    elseif W.space==3
+                        X.sizeINI = W.params.sizeINI;
+                        X.level = W.params.level;
+                        X.mode = W.params.mode;
+                        X.filters = W.params.filters;
+                        X.sizes = W.params.sizes;
+                        ps = prod(W.sizes_all,2);
                         Y = cell(1,length(ps));
                         for i=size(B,2):-1:1
                             startpt = 1;
                             for k=1:length(ps)
-                                Y{k} = reshape(B(startpt:startpt+ps(k)-1,i),A.sizes_all(k,:));
+                                Y{k} = reshape(B(startpt:startpt+ps(k)-1,i),W.sizes_all(k,:));
                                 startpt = startpt + ps(k);
                             end
                             X.dec = Y;
@@ -153,20 +158,20 @@ classdef wavelet_operator
                         end
                     end
                 else
-                    if A.space==1
+                    if W.space==1
                         for i=size(B,2):-1:1
-                            Q(:,i) = wavedecX(B(:,i),A.N,A.wname);
+                            Q(:,i) = wavedec(B(:,i),W.N,W.wname);
                         end
-                    elseif A.space==2
+                    elseif W.space==2
                         for i=size(B,3):-1:1
-                            Q(:,i) = wavedec2(B(:,:,i),A.N,A.wname).';
+                            Q(:,i) = wavedec2(B(:,:,i),W.N,W.wname).';
                         end
-                    elseif A.space==3
+                    elseif W.space==3
                         for i=size(B,4):-1:1
-                            X = wavedec3(B(:,:,:,i),A.params.level,A.wname);
+                            X = wavedec3(B(:,:,:,i),W.params.level,W.wname);
                             X = X.dec;
                             if i == size(B,4)
-                                ps = prod(A.sizes_all,2);
+                                ps = prod(W.sizes_all,2);
                                 Q = zeros(sum(ps),size(B,4));
                             end
                             startpt = 1;
@@ -176,19 +181,31 @@ classdef wavelet_operator
                             end
                         end
                     end
+                    Q = circshift(Q, -W.rand_shift);
                 end
             else % now B is the operator and A is the vector
-                Q = conj(mtimes(B',conj(A)));
+                Q = conj(mtimes(B',conj(W)));
                 
             end
         end
         
         function s = size(W,n)
             if nargin < 2
-                s = W.dim;
+                s(2) = prod(W.dim);
+                s(1) = sum(prod(W.sizes_all,2));
             else
-                s = W.dim(n);
+                if n==1
+                    s = sum(prod(W.sizes_all,2));
+                elseif n==2
+                    s = W.dim;
+                else
+                    s = 1;
+                end
             end
+        end
+        
+        function A = update_rand_shift(A)
+            A.rand_shift = round(rand(1,length(A.dim)).*A.dim);
         end
     end
 end
