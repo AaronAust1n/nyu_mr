@@ -184,12 +184,11 @@ return
 
 %% Here is an example on how to add some spatial regularization
 mu1       = 1e-3;   % ADMM Coupling Parameter for dictionary comparison
-lambda    = 5e-5;   % Spatial regularization parameter (l21- or nuclear-norm)
+lambda    = 5e-5;   % Spatial regularization parameter (l21-norm)
 mu2       = lambda; % ADMM Coupling Parameter for spatial regulization
 n_iter    = 20;    % Number of ADMM iterations
 n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 
-% P = wavelet_operator([nx ny], 3, 'db2');
+P = wavelet_operator([nx ny], 3, 'db2');
 % P = finite_difference_operator([1 2]);
-P = 'nuclear_norm';
 [qMaps, PD, x, r] = admm_recon(ELR, data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 1);

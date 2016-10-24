@@ -32,13 +32,11 @@ function [qMaps, PD, x, r] = admm_recon(E, data, Dic, ADMM_iter, cg_iter, mu1, m
 %                term. Has only an effect, if lambda>0 (default = .25)
 %   lambda    =  Regularization parameter (default = 0, which results in no
 %                spatial regularization)
-%   P         =  'nuclear_norm' for a nuclear norm penalty of the gradient
-%                or an operator that transforms the images into the space,
+%   P         =  operator that transforms the images into the space,
 %                in which an l21-norm penalty is applied. Has only an
 %                effect if lambda>0. Default = 1 (penalty in the image
 %                space).
 %                Examples:
-%                P = 'nuclear_norm';
 %                P = wavelet_operator([nx ny nz], 3, 'db2');
 %                P = finite_difference_operator([1 2 3]);
 %   verbose   =  0 for no output, 1 for plotting the images and in each
@@ -89,20 +87,7 @@ if nargin < 8 || isempty(lambda)
     lambda = 0;
 end
 if nargin < 9 || isempty(P)
-    nuc_flag = 0;
     P = 1;
-elseif ischar(P)
-    if ~strcmp(P, 'nuclear_norm') && lambda > 0
-        warning('P is a string, but not ''nuclear_norm'', we assume that is what you wanted to call');
-    end
-    nuc_flag = 1;
-    if length(recon_dim) == 3
-        P = finite_difference_operator([1 2]);
-    else
-        P = finite_difference_operator([1 2 3]);
-    end
-else
-    nuc_flag = 0;
 end
 if nargin < 10 || isempty(verbose)
     verbose = 1;
@@ -188,17 +173,11 @@ for j=1:ADMM_iter
     if lambda > 0
         G_old = G;
         Px = P * x;
-        if nuc_flag
-            %             Pxz = reshape(reshape(Px+z, [], 5)/Dic.s, [2, recon_dim]);
-            G = nuc_norm_prox_2d(Px+z,lambda,mu2);
-            %             G = reshape(reshape(G, [], 5)*Dic.s, [2, recon_dim]);
-        else
-            G = Px + z;
-            Tl2 = l2_norm(G, length(size(G)));
-            G = G ./ repmat(Tl2, [ones(1, length(size(G))-1) recon_dim(end)]);
-            G = G .* repmat(max(Tl2 - lambda/mu2, 0), [ones(1, length(size(G))-1) recon_dim(end)]);
-            G(isnan(G)) = 0;
-        end
+        G = Px + z;
+        Tl2 = l2_norm(G, length(size(G)));
+        G = G ./ repmat(Tl2, [ones(1, length(size(G))-1) recon_dim(end)]);
+        G = G .* repmat(max(Tl2 - lambda/mu2, 0), [ones(1, length(size(G))-1) recon_dim(end)]);
+        G(isnan(G)) = 0;
         z = z + Px - G;
         
         % Dynamic update of mu2 according to Boyd et al. 2011
@@ -220,11 +199,7 @@ for j=1:ADMM_iter
     if nargout > 3
         r(1,j) = 0.5 * l2_norm(E*DDhx - data).^2;
         if lambda > 0
-            if nuc_flag
-                [~, r_spatial] = nuc_norm_prox_2d(P * DDhx,1,1);
-            else
-                r_spatial = sum(abs(col(l2_norm(P * DDhx, length(size(Px))))));
-            end
+            r_spatial = sum(abs(col(l2_norm(P * DDhx, length(size(Px))))));
             r(1,j) = r(1,j) + lambda*r_spatial;
         end
     end
