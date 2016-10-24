@@ -1,6 +1,6 @@
 This toolbox reconstructs quantitative maps of arbitrary MR Fingerprinting data with arbitrary k-space trajectories. The algorithm is described in 
 
-[1] J. Asslaender, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and R. Lattanzi, Low Rank Alternating Direction Method of Multipliers Reconstruction for MR Fingerprinting  Magn. Reson. Med., epub ahead of print, 2016.
+[1] J. Asslaender, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and R. Lattanzi, Low Rank Alternating Direction Method of Multipliers Reconstruction for MR Fingerprinting, arXiv:1608.06974, 2016.
 
 The temporal evolution of the magnetization is approximated in a low rank space based on a singular value decomposition (SVD) of the dictionary. The function MRF_dictionary.m provides an example on how to calculate a dictionary and compress it. This function calculates a dictionary based on the pSSFP pattern described in 
 
