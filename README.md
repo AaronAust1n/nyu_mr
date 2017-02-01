@@ -1,10 +1,10 @@
 This toolbox reconstructs quantitative maps of arbitrary MR Fingerprinting data with arbitrary k-space trajectories. The algorithm is described in 
 
-[1] J. Asslaender, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and R. Lattanzi, Low Rank Alternating Direction Method of Multipliers Reconstruction for MR Fingerprinting, arXiv:1608.06974, 2016.
+[1] J. Asslaender, M.A. Cloos, F. Knoll, D.K. Sodickson, J.Hennig and R. Lattanzi, Low Rank Alternating Direction Method of Multipliers Reconstruction for MR Fingerprinting  Magn. Reson. Med., epub ahead of print, doi:10.1002/mrm.26639, 2017.
 
 The temporal evolution of the magnetization is approximated in a low rank space based on a singular value decomposition (SVD) of the dictionary. The function MRF_dictionary.m provides an example on how to calculate a dictionary and compress it. This function calculates a dictionary based on the pSSFP pattern described in 
 
-[2] J. Asslaender, S. J. Glaser, and J. Hennig, Pseudo Steady-State Free Precession for MR-Fingerprinting, Magn. Reson. Med., p. epub ahead of print, 2016.
+[2] J. Asslaender, S. J. Glaser, and J. Hennig, Pseudo Steady-State Free Precession for MR-Fingerprinting, Magn. Reson. Med., p. epub ahead of print, doi:10.1002/mrm.26202, 2016.
 
 The compression matrix resulting from the SVD is then passed on to the constructor of the LR_nuFFT_operator class. This class is based on Jeffrey Fessler's nuFFT implementation with min-max interpolation described in
 
@@ -25,7 +25,7 @@ An example script can be found in the 'example' folder, which demonstrates the i
 If you use this toolbox for the preparation of a manuscript, please cite above mentioned paper [1,3]. For questions, suggestions, bug-reports or if you would like to contribute to this toolbox, please feel free to contact me (see email address below).
 
 _______________________________________
-(c) Jakob Asslaender, August 2016
+(c) Jakob Asslaender, August 2016, February 2017
 
 New York University School of Medicine, Center for Biomedical Imaging
 
