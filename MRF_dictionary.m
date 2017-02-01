@@ -3,8 +3,7 @@ function D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx, R, slice_profile)
 % angle alpha. TR0 is either constant (pSSFP = 0) or follows the pSSFP
 % pattern (pSSFP = 1)
 %
-% D = MRF_dictionary(T1, T2,[], alpha)
-% D = MRF_dictionary(T1, T2, w, alpha)
+% D = MRF_dictionary(T1, T2,[], alpha, TR0)
 % D = MRF_dictionary(T1, T2, w, alpha, TR0)
 % D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP)
 % D = MRF_dictionary(T1, T2, w, alpha, TR0, pSSFP, idx)
@@ -117,7 +116,8 @@ Rot = @(alpha) [cos(alpha) -sin(alpha);
     sin(alpha)  cos(alpha)];
 
 d = complex(ones(2, length(T1)));
-m_dict = zeros(length(alpha),length(T1),length(slice_profile));
+x = zeros(length(alpha),length(T1),length(slice_profile));
+z = zeros(length(alpha),length(T1),length(slice_profile));
 
 for is = 1:length(slice_profile);
     M = complex(zeros(2, length(T1)));
@@ -138,7 +138,8 @@ for is = 1:length(slice_profile);
         M(2,:) = ones(1,size(M,2)) + (M(2,:)-ones(1,size(M,2))) .* exp(-TE(ip)./T1);
         
         % store the signal at the echo time
-        m_dict(ip,:,is) = M(1,:)*cos(pi*ip);
+        x(ip,:,is) = M(1,:)*cos(pi*ip);
+        z(ip,:,is) = M(2,:);
         
         % Relaxation
         M(1,:) = M(1,:) .* exp(-TD(ip)./T2);
@@ -153,28 +154,34 @@ for is = 1:length(slice_profile);
 end
 
 % sum over the slice profile
-m_dict = sum(m_dict,3);
+x = sum(x,3);
+z = sum(z,3);
 
 % Remove unaquired time frames
 if nargin > 6 && ~isempty(idx)
-    m_dict = m_dict(idx,:);
+    x = x(idx,:);
+    z = z(idx,:);
 end
 
 if nargin > 7 && ~isempty(R)
-    [u,~,~]=svd(m_dict, 'econ');
+    [u,s,~]=svd(x, 'econ');
     u = u(:,1:R);
-    m_dict = u'*m_dict;
+    x = u'*x;
     D.u    = u;
+    D.s    = diag(s);
 else
     D.u = [];
 end
 
-sos_dict = l2_norm(m_dict, 1);
-m_dict = (m_dict./repmat(sos_dict, [size(m_dict,1) 1]));
+sos_dict = l2_norm(x, 1);
+x = (x./repmat(sos_dict, [size(x,1) 1]));
 
-D.magnetization = m_dict;
+D.magnetization = x;
+D.z             = z;
 D.normalization = sos_dict;
 D.lookup_table  = T12_dict;
+D.TR            = TE+TD;
+D.TE            = TE;
 D.parameter{1}  = 'T1';
 D.parameter{2}  = 'T2';
 if length(w) > 1
