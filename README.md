@@ -24,6 +24,16 @@ An example script can be found in the 'example' folder, which demonstrates the i
 
 If you use this toolbox for the preparation of a manuscript, please cite above mentioned paper [1,3]. For questions, suggestions, bug-reports or if you would like to contribute to this toolbox, please feel free to contact me (see email address below).
 
+
+
+License Information
+
+The reconstruction framework is provided free of charge for use in research applications. It must not be used for diagnostic applications. The author takes no responsibility of any kind for the accuracy or integrity of the created data sets. No data created using the framework should be used to make diagnostic decisions. The source code is provided under the GNU General Public License (https://www.gnu.org/copyleft/gpl.html).
+
+The framework, including all of its software components, comes without any warranties. Operation of the software is solely on the user’s own risk. The author takes no responsibility for damage or misfunction of any kind caused by the software.
+
+
+
 _______________________________________
 (c) Jakob Asslaender, August 2016, February 2017
 
