@@ -40,7 +40,7 @@
 
 
 %% Set some  parameters
-R  = 5;    % Rank of approximation
+R  = 8;    % Rank of approximation
 nx = 128;  % Image size
 ny = nx;   % Image size
 
@@ -192,3 +192,17 @@ n_cg_iter = 20;    % Number of CG iterations in each ADMM iteration
 P = wavelet_operator([nx ny], 3, 'db2');
 % P = finite_difference_operator([1 2]);
 [qMaps, PD, x, r] = admm_recon(ELR, data, D, n_iter, n_cg_iter, mu1, mu2, lambda, P, 1);
+
+%% LR-ADMM reconstruction using the BART toolbox
+% NOTE: You must have a BART version newer then: Jun 18, 2019 
+% Enter path to directory containing the bart executable
+bart_path = '/local_scratch2/tbruijnen/BART_V2/bart/';
+lambda    = 0.0001;    % Spatial regularization parameter (l1-norm, TV) 
+n_iter    = 1000;      % Number of iterations
+
+% Reconstruction using bart
+[qMaps, PD, x] = admm_recon_bart(k, [nx ny], data, D, bart_path, n_iter, lambda, []); 
+
+figure(336); imagesc(abs(PD)); colormap gray; title('PD (a.u.)'); colorbar;
+figure(337); imagesc(qMaps(:,:,1)); eval(D.plot_details{1}); title('T1_{LR-ADMM} (s)');    colorbar;
+figure(338); imagesc(qMaps(:,:,2)); eval(D.plot_details{2}); title('T2_{LR-ADMM} (s)');    colorbar;
