@@ -40,7 +40,7 @@
 
 
 %% Set some  parameters
-R  = 8;    % Rank of approximation
+R  = 5;    % Rank of approximation
 nx = 128;  % Image size
 ny = nx;   % Image size
 
@@ -198,7 +198,7 @@ P = wavelet_operator([nx ny], 3, 'db2');
 % Enter path to directory containing the bart executable
 bart_path = '/local_scratch2/tbruijnen/BART_V2/bart/';
 lambda    = 0.0001;    % Spatial regularization parameter (l1-norm, TV) 
-n_iter    = 1000;      % Number of iterations
+n_iter    = 500;      % Number of iterations
 
 % Reconstruction using bart
 [qMaps, PD, x] = admm_recon_bart(k, [nx ny], data, D, bart_path, n_iter, lambda, []); 
